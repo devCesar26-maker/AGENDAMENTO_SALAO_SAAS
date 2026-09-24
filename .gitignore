@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+SAAS/
+
+# Django
+*.log
+db.sqlite3
+staticfiles/
+media/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Testes / qualidade
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Editores / SO
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Celery
+celerybeat-schedule

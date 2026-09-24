@@ -1,0 +1,31 @@
+#
+# Fonte da verdade das dependências. Para regenerar o lock:
+#   pip install pip-tools && pip-compile backend/requirements.in
+#
+Django==5.2.*
+djangorestframework==3.16.*
+djangorestframework-simplejwt==5.5.*
+drf-spectacular==0.28.*
+django-filter==25.*
+django-csp==4.0
+django-cors-headers==4.7.*
+argon2-cffi==23.1.0
+celery[redis]==5.5.*
+redis==5.2.*
+psycopg[binary]==3.2.*
+gunicorn==23.*
+nh3==0.3.*
+whitenoise==6.9.*
+dj-database-url==3.0.*
+
+# Dev / testes
+pytest==8.4.*
+pytest-django==4.11.*
+pytest-cov==6.*
+factory_boy==3.3.*
+freezegun==1.5.*
+django-debug-toolbar==5.*
+ruff==0.14.*
+black==25.*
+bandit==1.8.*
+pip-audit==2.9.*

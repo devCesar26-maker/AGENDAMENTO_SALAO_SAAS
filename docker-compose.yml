@@ -1,0 +1,96 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ecalt
+      POSTGRES_PASSWORD: ecalt
+      POSTGRES_DB: ecalt
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecalt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "8025:8025" # UI em http://localhost:8025
+
+  api:
+    build: ./backend
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    env_file: ./backend/.env.example
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/0
+      EMAIL_HOST: mailhog
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: celery -A config worker -l info
+    env_file: ./backend/.env.example
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      CELERY_TASK_EAGER: 0
+      DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/0
+      EMAIL_HOST: mailhog
+    volumes:
+      - ./backend:/app
+    depends_on:
+      api:
+        condition: service_started
+
+  beat:
+    build: ./backend
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+    env_file: ./backend/.env.example
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/0
+      EMAIL_HOST: mailhog
+    volumes:
+      - ./backend:/app
+    depends_on:
+      api:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    command: npm run dev -- --host
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

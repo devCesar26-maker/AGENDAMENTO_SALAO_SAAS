@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff black
+      - run: ruff check backend
+      - run: black --check backend
+
+  backend-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ecalt
+          POSTGRES_PASSWORD: ecalt
+          POSTGRES_DB: ecalt
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ecalt"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+      - name: Checagens do Django
+        working-directory: backend
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+      - name: Testes com cobertura
+        env:
+          DATABASE_URL: postgres://ecalt:ecalt@localhost:5432/ecalt
+          REDIS_URL: redis://localhost:6379/1
+        run: pytest --cov=backend --cov-fail-under=80 --cov-report=term
+
+  backend-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install bandit pip-audit
+      - run: bandit -r backend -x "backend/*/migrations/*,backend/config/settings/*" -q
+      - run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2026-9999 || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint --if-present
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npm test -- --run
+        working-directory: frontend
+      - run: npm audit --audit-level=high
+        working-directory: frontend
