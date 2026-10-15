@@ -37,7 +37,7 @@ class RegisterView(APIView):
         request=serializers.RegisterSerializer,
         responses={201: dict},
         summary="Cria usuário + salão + membership OWNER",
-        tags=["Auth"],
+        tags=["auth"],
     )
     def post(self, request):
         serializer = serializers.RegisterSerializer(data=request.data)
@@ -72,7 +72,7 @@ class LogoutView(APIView):
         request=serializers.LogoutSerializer,
         responses={200: dict},
         summary="Invalida refresh token (blacklist)",
-        tags=["Auth"],
+        tags=["auth"],
     )
     def post(self, request):
         logout_serializer = serializers.LogoutSerializer(data=request.data)
@@ -93,7 +93,7 @@ class PasswordResetRequestView(APIView):
         request=serializers.PasswordResetRequestSerializer,
         responses={200: dict},
         summary="Solicita reset de senha (resposta idêntica para e-mail existente ou não)",
-        tags=["Auth"],
+        tags=["auth"],
     )
     def post(self, request):
         serializer = serializers.PasswordResetRequestSerializer(data=request.data)
@@ -119,7 +119,7 @@ class PasswordResetConfirmView(APIView):
         request=serializers.PasswordResetConfirmSerializer,
         responses={200: dict},
         summary="Confirma reset de senha com uidb64 + token",
-        tags=["Auth"],
+        tags=["auth"],
     )
     def post(self, request):
         serializer = serializers.PasswordResetConfirmSerializer(data=request.data)
@@ -134,7 +134,7 @@ class MeView(APIView):
     @extend_schema(
         responses={200: serializers.MeSerializer},
         summary="Perfil e memberships do usuário autenticado",
-        tags=["Auth"],
+        tags=["auth"],
     )
     def get(self, request):
         from django.db.models import Prefetch

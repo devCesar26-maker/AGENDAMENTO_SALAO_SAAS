@@ -96,7 +96,7 @@ class InvitationAcceptView(APIView):
         request=InvitationAcceptSerializer,
         responses={201: dict},
         summary="Aceita convite por token; role vem do Invitation, nunca do payload",
-        tags=["Organizations"],
+        tags=["organizations"],
     )
     def post(self, request, token: str):
         serializer = InvitationAcceptSerializer(data=request.data)

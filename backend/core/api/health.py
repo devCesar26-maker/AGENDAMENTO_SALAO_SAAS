@@ -18,6 +18,6 @@ class HealthView(APIView):
     permission_classes: ClassVar[list] = [AllowAny]
     authentication_classes: ClassVar[list] = []
 
-    @extend_schema(responses={200: HealthSerializer}, tags=["Infra"])
+    @extend_schema(responses={200: HealthSerializer}, tags=["infra"])
     def get(self, request):
         return Response({"status": "ok", "servico": "ecalt-studio"})
