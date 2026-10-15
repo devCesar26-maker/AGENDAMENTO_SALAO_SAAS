@@ -38,20 +38,20 @@ docker compose up --build
 
 ### Endpoints da fase
 
-| Método | Rota | Quem acessa |
-|---|---|---|
-| POST | `/api/v1/auth/register/` | público |
-| POST | `/api/v1/auth/login/` | público |
-| POST | `/api/v1/auth/refresh/` | público |
-| POST | `/api/v1/auth/logout/` | autenticado |
-| POST | `/api/v1/auth/password/reset/` | público |
-| POST | `/api/v1/auth/password/reset/confirm/` | público (uidb64+token) |
-| GET | `/api/v1/me/` | autenticado |
-| GET/PATCH | `/api/v1/organizations/{slug}/` | membro / PATCH: OWNER+MANAGER |
-| POST/GET | `/api/v1/organizations/{slug}/invitations/` | OWNER+MANAGER |
-| POST | `/api/v1/invitations/{token}/accept/` | público (token = prova) |
-| GET | `/api/v1/organizations/{slug}/members/` | membro |
-| PATCH | `/api/v1/organizations/{slug}/members/{id}/` | OWNER |
+| Método   | Rota                                           | Quem acessa                   |
+| --------- | ---------------------------------------------- | ----------------------------- |
+| POST      | `/api/v1/auth/register/`                     | público                      |
+| POST      | `/api/v1/auth/login/`                        | público                      |
+| POST      | `/api/v1/auth/refresh/`                      | público                      |
+| POST      | `/api/v1/auth/logout/`                       | autenticado                   |
+| POST      | `/api/v1/auth/password/reset/`               | público                      |
+| POST      | `/api/v1/auth/password/reset/confirm/`       | público (uidb64+token)       |
+| GET       | `/api/v1/me/`                                | autenticado                   |
+| GET/PATCH | `/api/v1/organizations/{slug}/`              | membro / PATCH: OWNER+MANAGER |
+| POST/GET  | `/api/v1/organizations/{slug}/invitations/`  | OWNER+MANAGER                 |
+| POST      | `/api/v1/invitations/{token}/accept/`        | público (token = prova)      |
+| GET       | `/api/v1/organizations/{slug}/members/`      | membro                        |
+| PATCH     | `/api/v1/organizations/{slug}/members/{id}/` | OWNER                         |
 
 ## Arquitetura de multi-tenancy (shared-schema)
 
@@ -117,8 +117,8 @@ Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 
 ## Roadmap
 
-- [x] **Fase 0** — scaffolding, Docker, CI, lint, headers de segurança
-- [x] **Fase 1** — auth, salões, memberships, convites, isolamento de tenant
+- [X] **Fase 0** — scaffolding, Docker, CI, lint, headers de segurança
+- [X] **Fase 1** — auth, salões, memberships, convites, isolamento de tenant
 - [ ] Fase 2 — categorias, serviços, profissionais, clientes
 - [ ] Fase 3 — motor de disponibilidade e agendamentos multi-serviço
 - [ ] Fase 4 — agenda FullCalendar + página pública de reserva

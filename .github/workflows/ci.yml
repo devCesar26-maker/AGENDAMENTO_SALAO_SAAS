@@ -13,7 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff black
+      # Versões PINADAS em .pre-commit-config.yaml (rev: v0.14.14 / 25.12.0).
+      # Ao atualizar lá, atualize aqui também — versões divergentes entre local
+      # (pre-commit) e CI causam falsos reprovados de formatação/lint.
+      - run: pip install ruff==0.14.14 black==25.12.0
       - run: ruff check backend
       - run: black --check backend
 
@@ -69,7 +72,38 @@ jobs:
           --ignore-vuln PYSEC-2026-2120
           --ignore-vuln PYSEC-2026-2121
 
+  # ── Frontend (DESATIVADO nesta fase) ─────────────────────────────────────
+  # O frontend é apenas o scaffold inicial (Vite + TS) e não está sendo
+  # trabalhado nesta fase — decisão registrada de ignorá-lo por ora.
+  #
+  # Enquanto isso, o job "frontend" abaixo SÓ roda quando houver mudanças em
+  # `frontend/**`: hoje ele fica skipado (aparece como skipped, não falha) e
+  # volta a rodar sozinho assim que a fase de frontend começar e alterar o
+  # diretório /frontend.
+  #
+  # REATIVAÇÃO EM FASE DE FRONTEND: quando essa fase iniciar, basta tornar o
+  # lint/build/test do frontend obrigatório (ex.: remover o `needs`/`if` abaixo
+  # para rodar sempre, ou torná-lo required nas branch protection rules).
+
+  # Detecta se o PR/push tem mudanças relevantes em frontend/**.
+  frontend-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+
   frontend:
+    needs: frontend-changes
+    if: needs.frontend-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
