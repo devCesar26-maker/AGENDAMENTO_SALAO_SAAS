@@ -66,6 +66,11 @@ django==5.2.17
     #   -r requirements.in
     #   dj-database-url
     #   django-cors-headers
+    #   django-debug-toolbar
+    #   django-filter
+    #   djangorestframework
+    #   djangorestframework-simplejwt
+    #   drf-spectacular
     #   django-csp
     #   django-debug-toolbar
     #   django-filter
@@ -80,7 +85,7 @@ django-debug-toolbar==5.2.0
     # via -r requirements.in
 django-filter==25.2
     # via -r requirements.in
-djangorestframework==3.16.1
+djangorestframework==3.17.2
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
@@ -181,6 +186,8 @@ python-dateutil==2.9.0.post0
     # via
     #   celery
     #   freezegun
+python-dotenv==1.2.3
+    # via -r requirements.in
 pytokens==0.4.1
     # via black
 pyyaml==6.0.3

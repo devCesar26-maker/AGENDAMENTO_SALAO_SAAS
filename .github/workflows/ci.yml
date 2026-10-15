@@ -59,8 +59,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install bandit pip-audit
-      - run: bandit -r backend -x "backend/*/migrations/*,backend/config/settings/*" -q
-      - run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2026-9999 || true
+      - run: bandit -r backend -x "backend/*/migrations/*,backend/config/settings/*,backend/*/tests/*" -q
+        # Asserções em testes geram B101 e senhas fictícias B105 — excluídos por padrão.
+      # Vulnerabilidades conhecidas apenas em deps de DEV (black/pytest), sem
+      # impacto em produção; upgrades acompanhados separadamente.
+      - run: >-
+          pip-audit -r backend/requirements.txt
+          --ignore-vuln PYSEC-2026-1845
+          --ignore-vuln PYSEC-2026-2120
+          --ignore-vuln PYSEC-2026-2121
 
   frontend:
     runs-on: ubuntu-latest

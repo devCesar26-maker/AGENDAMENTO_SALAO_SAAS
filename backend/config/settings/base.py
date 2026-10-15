@@ -179,8 +179,7 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.api.exceptions.exception_handler",
 }
 
-# SimpleJWT: access curto em memória; refresh longo em cookie httpOnly com rotação
-# e blacklist. Rotacionar => blacklist de refresh antigo a cada refresh.
+# SimpleJWT: access curto em memória; refresh longo com rotação e blacklist.
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env_int("JWT_ACCESS_MINUTES", 15)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env_int("JWT_REFRESH_DAYS", 7)),
@@ -194,6 +193,10 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
     "TOKEN_OBTAIN_SERIALIZER": "core.api.jwt.TenantTokenObtainPairSerializer",
 }
+
+# Bloqueio temporário de login por e-mail após falhas (anti brute force).
+LOGIN_MAX_FAILED_ATTEMPTS = env_int("LOGIN_MAX_FAILED_ATTEMPTS", 5)
+LOGIN_LOCKOUT_SECONDS = env_int("LOGIN_LOCKOUT_SECONDS", 900)  # 15 minutos
 
 # drf-spectacular
 SPECTACULAR_SETTINGS = {

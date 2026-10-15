@@ -1,6 +1,7 @@
 """Paginação padrão: page number, page_size limitado (anti DoS de payload)."""
 
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 
 
 class DefaultPagination(PageNumberPagination):
@@ -9,9 +10,11 @@ class DefaultPagination(PageNumberPagination):
     max_page_size = 100
 
     def get_paginated_response(self, data):
-        return {
-            "count": self.page.paginator.count,
-            "page": self.page.number,
-            "page_size": self.get_page_size(self.request),
-            "results": data,
-        }
+        return Response(
+            {
+                "count": self.page.paginator.count,
+                "page": self.page.number,
+                "page_size": self.get_page_size(self.request),
+                "results": data,
+            }
+        )

@@ -1,0 +1,14 @@
+Olá!
+
+Você foi convidado para atuar como {{ role }} no salão {{ organization_name }} no Éclat Studio.{% if inviter %}
+
+Convite enviado por: {{ inviter }}.{% endif %}
+
+Para aceitar o convite, acesse:
+{{ invite_url }}
+
+Estimativa de validade: até {{ expires_at }} (após isso, solicite um novo convite).
+
+Se você não esperava este convite, por segurança ignore este e-mail.
+
+Equipe Éclat Studio

@@ -14,7 +14,12 @@ class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         token["email"] = user.email
-        membership = user.memberships.select_related("organization").order_by("created_at").first()
+        membership = (
+            user.memberships.filter(is_active=True)
+            .select_related("organization")
+            .order_by("created_at")
+            .first()
+        )
         if membership:
             token["org_id"] = str(membership.organization_id)
             token["org_slug"] = membership.organization.slug
@@ -23,7 +28,12 @@ class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        membership = self.user.memberships.order_by("created_at").first()
+        membership = (
+            self.user.memberships.filter(is_active=True)
+            .select_related("organization")
+            .order_by("created_at")
+            .first()
+        )
         data["user"] = {
             "id": self.user.id,
             "email": self.user.email,

@@ -1,4 +1,6 @@
-"""Modelos de domínio: salões, memberships e convites."""
+"""
+Modelos de domínio: salões, memberships e convites.
+"""
 
 import secrets
 from datetime import timedelta
@@ -6,8 +8,9 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
-from core.models import TimeStampedModel
+from core.models import TenantScopedManager, TimeStampedModel
 
 
 class Organization(TimeStampedModel):
@@ -15,7 +18,14 @@ class Organization(TimeStampedModel):
 
     name = models.CharField("nome", max_length=120)
     slug = models.SlugField(
-        "slug", max_length=60, unique=True, help_text="Usado na URL pública /b/<slug>"
+        "slug",
+        max_length=60,
+        unique=True,
+        blank=True,
+        help_text=(
+            "Gerado automaticamente a partir do nome se omitido; "
+            "pode ser editado depois. Usado nas URLs."
+        ),
     )
     timezone = models.CharField("fuso horário", max_length=64, default="America/Sao_Paulo")
     phone = models.CharField("telefone", max_length=20, blank=True)
@@ -36,14 +46,27 @@ class Organization(TimeStampedModel):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        """Gera slug único a partir do nome quando omitido (editável depois)."""
+        if not self.slug:
+            base = slugify(self.name)[:54] or "salao"
+            candidate, i = base, 2
+            while type(self).objects.exclude(pk=self.pk).filter(slug=candidate).exists():
+                candidate = f"{base[:55]}-{i}"
+                i += 1
+            self.slug = candidate
+        super().save(*args, **kwargs)
+
 
 class Membership(TimeStampedModel):
-    """Vínculo entre usuário e salão, com papel (role)."""
+    """Vínculo entre usuário e salão, com papel (role) e status ativo."""
 
     class Role(models.TextChoices):
         OWNER = "OWNER", "Proprietário"
         MANAGER = "MANAGER", "Gerente"
         PROFESSIONAL = "PROFESSIONAL", "Profissional"
+
+    objects = TenantScopedManager()
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
@@ -52,10 +75,16 @@ class Membership(TimeStampedModel):
         Organization, on_delete=models.CASCADE, related_name="memberships"
     )
     role = models.CharField("papel", max_length=20, choices=Role.choices, default=Role.PROFESSIONAL)
+    is_active = models.BooleanField(
+        "ativo",
+        default=True,
+        help_text="Desativado = sem acesso ao salão (não aparece na agenda).",
+    )
 
     class Meta:
         verbose_name = "membro"
         verbose_name_plural = "membros"
+        ordering = ["created_at"]
         constraints = [
             models.UniqueConstraint(
                 fields=("user", "organization"), name="uniq_membership_user_org"
@@ -68,6 +97,8 @@ class Membership(TimeStampedModel):
 
 class Invitation(TimeStampedModel):
     """Convite por e-mail para ingressar em um salão, com token expirável."""
+
+    objects = TenantScopedManager()
 
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="invitations"
@@ -93,6 +124,7 @@ class Invitation(TimeStampedModel):
     class Meta:
         verbose_name = "convite"
         verbose_name_plural = "convites"
+        ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
                 fields=("organization", "email"),

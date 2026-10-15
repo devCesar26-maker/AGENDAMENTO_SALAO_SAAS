@@ -43,13 +43,18 @@ def resolve_tenant(request):
     Resolve e cachear a organização ativa no request.
 
     Por simplicidade (decisão registrada no README), o usuário opera sob a
-    primeira membership; suporte a múltiplos salões por usuário virá via
+    primeira membership ativa; suporte a múltiplos salões por usuário virá via
     header X-Organization-Id validado contra as memberships.
     """
     user = request.user
     if not user or not user.is_authenticated:
         return None
-    membership = user.memberships.select_related("organization").order_by("created_at").first()
+    membership = (
+        user.memberships.filter(is_active=True)
+        .select_related("organization")
+        .order_by("created_at")
+        .first()
+    )
     request.organization = membership.organization if membership else None
     request.membership = membership
     return request.organization

@@ -20,6 +20,10 @@ ignore = ["E501", "SIM108", "DJ001"]
 [tool.ruff.lint.per-file-ignores]
 # `objects = UserManager()` e TextChoices são convenções Django, não mutáveis acidentais.
 "**/models.py" = ["RUF012"]
+# Atributos de classe DRF (throttle_classes, permission_classes etc.) são convenção DRF.
+"**/views.py" = ["RUF012"]
+"**/serializers.py" = ["RUF012"]
+"**/factories.py" = ["RUF012", "F401"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["config", "core", "accounts", "organizations", "catalog", "customers", "scheduling", "billing", "notifications", "analytics"]

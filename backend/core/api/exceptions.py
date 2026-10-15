@@ -28,6 +28,15 @@ _ERROR_CODES = {
 }
 
 
+def _normalize_detail(detail) -> str:
+    """Normaliza detail de exceção DRF (pode ser str, lista ou dict com detail)."""
+    if isinstance(detail, dict) and "detail" in detail:
+        detail = detail["detail"]
+    if isinstance(detail, (list, tuple)):
+        detail = str(detail[0]) if detail else None
+    return str(detail) if detail else "Erro na requisição."
+
+
 def exception_handler(exc, context):
     """Converte exceções DRF/Django para o formato padronizado."""
     response = drf_exception_handler(exc, context)
@@ -35,23 +44,22 @@ def exception_handler(exc, context):
         return None  # 500; middleware loga e padroniza fora de DEBUG
 
     code = _ERROR_CODES.get(exc.__class__.__name__, "error")
-    detail = getattr(response, "detail", None)
-    payload = {"error": {"code": code, "detail": str(detail) if detail else "Erro na requisição."}}
+    detail = getattr(exc, "detail", None)
+    payload = {"error": {"code": code, "detail": _normalize_detail(detail)}}
 
-    if code == "validation_error":
-        # response.data: {campo: [erros]} ou lista de erros não-campo (detail)
-        if isinstance(response.data, dict) and "detail" not in response.data:
+    if code == "validation_error" and isinstance(response.data, dict):
+        if "detail" not in response.data:
             payload["error"]["fields"] = {
                 field: err if isinstance(err, list) else [err]
                 for field, err in response.data.items()
             }
             payload["error"]["detail"] = "Verifique os campos informados."
-        elif isinstance(response.data, dict) and "detail" in response.data:
-            payload["error"]["detail"] = str(response.data["detail"])
+        else:
+            payload["error"]["detail"] = _normalize_detail(response.data["detail"])
 
-    if code == "throttled" and getattr(response, "wait", None):
-        payload["error"]["detail"] = f"Muitas tentativas. Tente novamente em {int(response.wait)}s."
-        response["Retry-After"] = str(int(response.wait))
+    if code == "throttled" and getattr(exc, "wait", None):
+        payload["error"]["detail"] = f"Muitas tentativas. Tente novamente em {int(exc.wait)}s."
+        response["Retry-After"] = str(int(exc.wait))
 
     response.data = payload
     return response

@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: ecalt
       POSTGRES_PASSWORD: ecalt
       POSTGRES_DB: ecalt
+    ports:
+      - "5433:5432" # host não pode usar 5432 (postgres do sistema já ocupado)
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -10,7 +10,11 @@ class RoleUserRateThrottle(UserRateThrottle):
 
 
 class AuthRateThrottle(ScopedRateThrottle):
-    """Login/refresh/recuperação de senha: mais restritivo (anti brute force)."""
+    """ "
+    Login/registro/recuperação de senha: mais restritivo (anti brute force).
+    IMPORTANTE: ScopedRateThrottle lê o escopo de `view.throttle_scope` —
+    views que usam esta classe precisam definir `throttle_scope = "auth"`.
+    """
 
     scope = "auth"
 

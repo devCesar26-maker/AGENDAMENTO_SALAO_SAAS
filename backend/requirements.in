@@ -3,7 +3,7 @@
 #   pip install pip-tools && pip-compile backend/requirements.in
 #
 Django==5.2.*
-djangorestframework==3.16.*
+djangorestframework==3.17.*
 djangorestframework-simplejwt==5.5.*
 drf-spectacular==0.28.*
 django-filter==25.*
@@ -17,6 +17,7 @@ gunicorn==23.*
 nh3==0.3.*
 whitenoise==6.9.*
 dj-database-url==3.0.*
+python-dotenv==1.2.*
 
 # Dev / testes
 pytest==8.4.*
