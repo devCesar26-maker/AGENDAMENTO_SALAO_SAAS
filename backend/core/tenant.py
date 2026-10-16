@@ -60,6 +60,43 @@ def resolve_tenant(request):
     return request.organization
 
 
+def resolve_membership(request):
+    """
+    Retorna `(organization, membership)` ativas do request, reutilizando os
+    caches de `resolve_tenant` (uma única query de membership por request).
+
+    Usado por permissions que exigem role em rotas sem slug de salão
+    (`/api/v1/services/...`, `/api/v1/customers/...`). Sem membership ativa:
+    `(None, None)` — fail-closed.
+    """
+    organization = getattr(request, "organization", None)
+    if organization is None:
+        organization = resolve_tenant(request)
+        if organization is None:
+            return None, None
+    membership = getattr(request, "membership", None)
+    if membership is None or membership.organization_id != organization.id:
+        from organizations.selectors import get_active_membership
+
+        membership = get_active_membership(request.user, organization)
+    return organization, membership
+
+
+class TenantSerializerContextMixin:
+    """
+    Expõe `context["organization"]` aos serializers para validações de
+    integridade de FK entre tenants (ex.: categoria não pertence ao salão).
+    """
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        organization = getattr(self.request, "organization", None)
+        if organization is None:
+            organization = resolve_tenant(self.request)
+        context["organization"] = organization
+        return context
+
+
 class TenantModelViewSet:
     """
     Mixin para ViewSets de entidades TenantModel.
@@ -86,6 +123,23 @@ class TenantModelViewSet:
     def perform_create(self, serializer):
         org = getattr(self.request, "organization", None) or resolve_tenant(self.request)
         serializer.save(organization=org)
+
+
+class MembershipRequired(BasePermission):
+    """
+    Fail-closed para rotas de negócio sem slug de salão: exige membership
+    ativa e RESOLVE o tenant no request (cachear `request.organization`).
+
+    Diferença para `IsTenantMember`: aqui a resolução acontece já na checagem
+    de permissão, garantindo que `get_queryset`/views tenham o tenant pronto.
+    """
+
+    message = "Usuário sem vínculo com um salão."
+
+    def has_permission(self, request, view) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return resolve_tenant(request) is not None
 
 
 class IsTenantMember(BasePermission):

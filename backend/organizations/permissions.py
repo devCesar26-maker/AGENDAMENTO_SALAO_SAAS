@@ -8,6 +8,7 @@ fail-closed.
 
 from rest_framework.permissions import BasePermission
 
+from core.tenant import resolve_membership
 from organizations import selectors
 from organizations.models import Organization
 
@@ -46,6 +47,29 @@ class IsOrganizationMember(_BaseOrganizationRolePermission):
 
 class IsOrganizationManagerOrOwner(_BaseOrganizationRolePermission):
     """Apenas OWNER e MANAGER (editam salão, convidam, listam convites)."""
+
+    message = "Apenas proprietários e gerentes podem executar esta ação."
+    allowed_roles = frozenset({"OWNER", "MANAGER"})
+
+
+class _TenantRequestRolePermission(BasePermission):
+    """
+    Base para rotas de negócio sem slug de salão na URL (`/api/v1/services/`
+    etc.): o tenant e o role vêm da membership ativa resolvenda no request
+    (`core.tenant.resolve_membership`) — nunca de parâmetros.
+    """
+
+    allowed_roles: frozenset[str] = frozenset()
+
+    def has_permission(self, request, view) -> bool:
+        if not request.user.is_authenticated:
+            return False
+        _, membership = resolve_membership(request)
+        return membership is not None and membership.role in self.allowed_roles
+
+
+class IsTenantManagerOrOwner(_TenantRequestRolePermission):
+    """Escrita de catálogo no request atual: apenas OWNER e MANAGER."""
 
     message = "Apenas proprietários e gerentes podem executar esta ação."
     allowed_roles = frozenset({"OWNER", "MANAGER"})

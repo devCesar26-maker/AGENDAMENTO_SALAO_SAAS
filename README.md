@@ -1,3 +1,5 @@
+r
+
 # Éclat Studio
 
 SaaS multi-tenant de agendamento e gestão para **salões de beleza e barbearias**.
@@ -52,6 +54,48 @@ docker compose up --build
 | POST      | `/api/v1/invitations/{token}/accept/`        | público (token = prova)      |
 | GET       | `/api/v1/organizations/{slug}/members/`      | membro                        |
 | PATCH     | `/api/v1/organizations/{slug}/members/{id}/` | OWNER                         |
+
+## Fase 2 implementada (backend/API)
+
+- **Catálogo**: categorias e serviços (com duração, preço e *buffer*
+  pós-atendimento), profissionais (com ou sem login vinculado), vínculo
+  serviço–profissional com overrides de preço/duração e comissão, horários
+  de trabalho semanais (múltiplas janelas por dia — unidas pelo motor da
+  Fase 3) e folgas/bloqueios.
+- **Clientes**: CRM com busca (`search`) por nome/telefone/e-mail, como:
+  filtragem, observações sanitizadas e consentimento LGPD versionado por
+  carimbo (`lgpd_consent_at`).
+- **Segurança/tenancy**: tudo em `for_tenant(...)` escopado explicitamente;
+  `organization` nunca vem do payload; permissões object-level novas
+  (PROFESSIONAL edita só o próprio perfil/agenda); FKs entre apps validadas
+  contra o tenant (categoria/serviço de outro salão → 400; objeto de outro
+  tenant → 404/403).
+- **Sanitização**: texto livre (observações, descrição, motivo de folga) tem
+  tags HTML removidas no backend (`core/sanitization.py`);
+  `SANITIZE_ALLOWLIST_TAGS` fica reservado para HTML rico futuro (bleach).
+- **Performance**: `django_assert_num_queries` nas listagens (3–4 queries
+  fixas, sem N+1) com `select_related`/`prefetch_related`; paginação
+  obrigatória.
+
+### Endpoints da fase 2
+
+| Método | Rota                                     | Quem acessa                                  |
+| ------ | ---------------------------------------- | -------------------------------------------- |
+| POST/GET | `/api/v1/service-categories/`          | POST: OWNER/MANAGER · GET: membro            |
+| GET/PATCH/DELETE | `/api/v1/service-categories/{id}/` | LEITURA: membro · escrita: OWNER/MANAGER   |
+| POST/GET | `/api/v1/services/` (`?category=`, `?is_active=`) | POST: OWNER/MANAGER · GET: membro  |
+| GET/PATCH/DELETE | `/api/v1/services/{id}/`        | LEITURA: membro · escrita: OWNER/MANAGER     |
+| POST/GET | `/api/v1/professionals/` (`?is_active=`) | POST: OWNER/MANAGER · GET: membro            |
+| GET/PATCH/DELETE | `/api/v1/professionals/{id}/`   | LEITURA: membro · PATCH: OWNER/MANAGER ou PROFESSIONAL nos PRÓPRIOS dados básicos · DELETE: OWNER/MANAGER |
+| POST/GET | `/api/v1/professionals/{id}/services/`  | POST: OWNER/MANAGER ou PROFESSIONAL no próprio · GET: membro |
+| PATCH/DELETE | `/api/v1/professional-services/{id}/` | OWNER/MANAGER em qualquer um; PROFESSIONAL só o próprio (senão 403) |
+| POST/GET | `/api/v1/professionals/{id}/working-hours/` | idem vínculos                        |
+| PATCH/DELETE | `/api/v1/working-hours/{id}/`       | idem vínculos                                |
+| POST/GET | `/api/v1/professionals/{id}/time-offs/` | idem vínculos                                |
+| PATCH/DELETE | `/api/v1/time-offs/{id}/`           | idem vínculos                                |
+| POST/GET | `/api/v1/customers/` (`?search=`)       | todo membro do salão                         |
+| GET/PATCH/DELETE | `/api/v1/customers/{id}/`       | todo membro do salão                         |
+| POST | `/api/v1/customers/{id}/lgpd-consent/`      | todo membro do salão (carimbo no servidor)  |
 
 ## Arquitetura de multi-tenancy (shared-schema)
 
@@ -119,7 +163,7 @@ Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 
 - [X] **Fase 0** — scaffolding, Docker, CI, lint, headers de segurança
 - [X] **Fase 1** — auth, salões, memberships, convites, isolamento de tenant
-- [ ] Fase 2 — categorias, serviços, profissionais, clientes
+- [X] **Fase 2** — categorias, serviços, profissionais, clientes (LGPD)
 - [ ] Fase 3 — motor de disponibilidade e agendamentos multi-serviço
 - [ ] Fase 4 — agenda FullCalendar + página pública de reserva
 - [ ] Fase 5 — Celery, e-mails, lembretes, lista de espera

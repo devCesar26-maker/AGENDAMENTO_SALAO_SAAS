@@ -43,7 +43,14 @@ def exception_handler(exc, context):
     if response is None:
         return None  # 500; middleware loga e padroniza fora de DEBUG
 
-    code = _ERROR_CODES.get(exc.__class__.__name__, "error")
+    code = _ERROR_CODES.get(exc.__class__.__name__)
+    if code is None:
+        # Exceções de domínio (ex.: BusinessError) carregam código estável próprio:
+        # prefira o code do detail (ex.: "last_owner", "category_in_use").
+        detail_code = getattr(getattr(exc, "detail", None), "code", None)
+        code = (
+            detail_code if isinstance(detail_code, str) else getattr(exc, "default_code", "error")
+        )
     detail = getattr(exc, "detail", None)
     payload = {"error": {"code": code, "detail": _normalize_detail(detail)}}
 

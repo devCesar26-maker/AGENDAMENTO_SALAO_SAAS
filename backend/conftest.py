@@ -39,3 +39,59 @@ def auth_client(api_client, organization) -> APIClient:
     """Client autenticado como OWNER do salão A."""
     api_client.force_authenticate(user=organization._owner)
     return api_client
+
+
+# ── Fixtures de roles para a Fase 2 (catálogo e clientes) ─────────────────
+
+
+@pytest.fixture
+def manager(organization):
+    """Usuário MANAGER do salão A."""
+    user = UserFactory()
+    MembershipFactory(organization=organization, user=user, role="MANAGER")
+    return user
+
+
+@pytest.fixture
+def manager_client(api_client, organization, manager) -> APIClient:
+    api_client.force_authenticate(user=manager)
+    return api_client
+
+
+@pytest.fixture
+def professional_user(organization):
+    """Usuário com membership PROFESSIONAL no salão A (sem perfil vinculado)."""
+    user = UserFactory()
+    MembershipFactory(organization=organization, user=user, role="PROFESSIONAL")
+    return user
+
+
+@pytest.fixture
+def professional_client(api_client, professional_user) -> APIClient:
+    api_client.force_authenticate(user=professional_user)
+    return api_client
+
+
+@pytest.fixture
+def professional(organization, professional_user):
+    """Perfil de profissional do salão A vinculado ao PROFESSIONAL."""
+    from catalog.factories import ProfessionalFactory
+
+    return ProfessionalFactory(organization=organization, user=professional_user)
+
+
+@pytest.fixture
+def other_organization():
+    """Salão B (isolation tenant) com OWNER, PROFESSIONAL e perfil vinculado."""
+    from catalog.factories import ProfessionalFactory
+
+    org = OrganizationFactory()
+    owner = UserFactory()
+    MembershipFactory(organization=org, user=owner, role="OWNER")
+    professional_user = UserFactory()
+    MembershipFactory(organization=org, user=professional_user, role="PROFESSIONAL")
+    org._owner = owner
+    org._professional = ProfessionalFactory(
+        organization=org, user=professional_user, name="Pro do salão B"
+    )
+    return org
