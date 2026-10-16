@@ -44,6 +44,9 @@ DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = [
     h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
 ]
+PUBLIC_BASE_DOMAIN = env("PUBLIC_BASE_DOMAIN", "")
+if PUBLIC_BASE_DOMAIN.strip():
+    ALLOWED_HOSTS.append(f".{PUBLIC_BASE_DOMAIN.strip().lstrip('.')}")
 
 # Aplicativos
 DJANGO_APPS = [
@@ -82,6 +85,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "organizations.middleware.PublicBookingTenantMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

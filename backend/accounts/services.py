@@ -31,13 +31,32 @@ def register_with_organization(
     first_name: str,
     last_name: str = "",
     organization_name: str,
+    vertical: str,
     organization_phone: str = "",
 ) -> tuple:
     """User + Organization (slug automático) + Membership OWNER numa transação."""
     user = User.objects.create_user(
         email=email, password=password, first_name=first_name, last_name=last_name
     )
-    organization = Organization.objects.create(name=organization_name, phone=organization_phone)
+    from django.utils.text import slugify
+
+    from catalog.seed_data import seed_catalog
+
+    slug_base = f"{slugify(organization_name)}-{slugify(first_name)}"[:60].strip("-") or "salao"
+    slug, suffix = slug_base, 2
+    while Organization.objects.filter(slug=slug).exists():
+        ending = f"-{suffix}"
+        slug = f"{slug_base[:60 - len(ending)]}{ending}"
+        suffix += 1
+    tema_cor = "#2563EB" if vertical == Organization.Vertical.BARBEARIA else "#8B5CF6"
+    organization = Organization.objects.create(
+        name=organization_name,
+        slug=slug,
+        vertical=vertical,
+        tema_cor=tema_cor,
+        phone=organization_phone,
+    )
+    seed_catalog(organization)
     Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
     return user, organization
 

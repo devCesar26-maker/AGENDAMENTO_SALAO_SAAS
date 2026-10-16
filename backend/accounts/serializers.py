@@ -20,6 +20,7 @@ class RegisterSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     organization_name = serializers.CharField(max_length=120)
+    vertical = serializers.ChoiceField(choices=("SALAO", "BARBEARIA"))
     organization_phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
 
     def validate_email(self, value: str) -> str:

@@ -6,6 +6,7 @@ from rest_framework import status
 
 from accounts.models import User
 from billing.models import Subscription
+from catalog.models import Service
 from organizations.models import Membership, Organization
 
 REGISTER_URL = reverse("auth-register")
@@ -20,6 +21,7 @@ class TestRegisterEndpoint:
             "first_name": "Ana",
             "last_name": "Souza",
             "organization_name": "Studio Ana Beleza",
+            "vertical": "SALAO",
             "organization_phone": "+55 11 99999-0000",
         }
         response = api_client.post(REGISTER_URL, payload, format="json")
@@ -28,10 +30,10 @@ class TestRegisterEndpoint:
         data = response.json()
         assert "access" in data and "refresh" in data
         assert data["user"]["email"] == "dono@studio.com.br"
-        assert data["organization"]["slug"] == "studio-ana-beleza"
+        assert data["organization"]["slug"] == "studio-ana-beleza-ana"
 
         user = User.objects.get(email="dono@studio.com.br")
-        organization = Organization.objects.get(slug="studio-ana-beleza")
+        organization = Organization.objects.get(slug="studio-ana-beleza-ana")
         assert organization.phone == "+55 11 99999-0000"
         membership = Membership.objects.get(user=user, organization=organization)
         assert membership.role == Membership.Role.OWNER
@@ -48,13 +50,53 @@ class TestRegisterEndpoint:
                     "password": "SenhaForte#2026!",
                     "first_name": "A",
                     "organization_name": nome,
+                    "vertical": "SALAO",
                 },
                 format="json",
             )
             assert response.status_code == status.HTTP_201_CREATED
 
         slugs = list(Organization.objects.all().values_list("slug", flat=True))
-        assert slugs == ["studio-bello", "studio-bello-2"]
+        assert slugs == ["studio-bello-a", "studio-bello-a-2"]
+
+    @pytest.mark.parametrize(
+        ("vertical", "expected"),
+        [
+            ("BARBEARIA", "Combo Corte + Barba"),
+            ("SALAO", "Coloração"),
+        ],
+    )
+    def test_registro_semeia_catalogo_da_vertical(self, api_client, vertical, expected):
+        response = api_client.post(
+            REGISTER_URL,
+            {
+                "email": f"{vertical.lower()}@studio.com.br",
+                "password": "SenhaMuitoForte#2026!",
+                "first_name": "Ana",
+                "organization_name": "Studio Inicial",
+                "vertical": vertical,
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        organization = Organization.objects.get(pk=response.json()["organization"]["id"])
+        assert organization.vertical == vertical
+        assert Service.objects.filter(organization=organization, name=expected).exists()
+        assert organization.tema_cor == ("#2563EB" if vertical == "BARBEARIA" else "#8B5CF6")
+
+    def test_vertical_obrigatoria(self, api_client):
+        response = api_client.post(
+            REGISTER_URL,
+            {
+                "email": "semvertical@studio.com.br",
+                "password": "SenhaMuitoForte#2026!",
+                "first_name": "Ana",
+                "organization_name": "Studio",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "vertical" in response.json()["error"]["fields"]
 
     def test_email_duplicado_nao_revela_existencia(self, api_client):
         payload = {
@@ -62,6 +104,7 @@ class TestRegisterEndpoint:
             "password": "SenhaMuitoForte#2026!",
             "first_name": "Ana",
             "organization_name": "Studio Ana",
+            "vertical": "SALAO",
         }
         assert api_client.post(REGISTER_URL, payload, format="json").status_code == 201
         response = api_client.post(REGISTER_URL, payload, format="json")
@@ -79,6 +122,7 @@ class TestRegisterEndpoint:
                 "password": "12345678",
                 "first_name": "Ana",
                 "organization_name": "Studio Fraco",
+                "vertical": "SALAO",
             },
             format="json",
         )
@@ -93,6 +137,7 @@ class TestRegisterEndpoint:
                 "password": "SenhaForte#2026!",
                 "first_name": "H",
                 "organization_name": "Studio X",
+                "vertical": "SALAO",
                 "role": "OWNER",
                 "organization_id": 99999,
             },

@@ -44,6 +44,8 @@ class OrganizationDetailView(OrganizationSlugMixin, generics.RetrieveUpdateAPIVi
     serializer_class = OrganizationSerializer
 
     def get_permissions(self):
+        if self.request.method == "PATCH" and "slug" in self.request.data:
+            return [IsOrganizationOwner()]
         if self.request.method == "PATCH":
             return [IsOrganizationManagerOrOwner()]
         return [IsOrganizationMember()]

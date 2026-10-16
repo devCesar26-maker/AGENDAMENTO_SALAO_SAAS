@@ -57,6 +57,8 @@ class RegisterView(APIView):
                 "id": organization.id,
                 "name": organization.name,
                 "slug": organization.slug,
+                "vertical": organization.vertical,
+                "tema_cor": organization.tema_cor,
             },
         }
         return Response(data, status=status.HTTP_201_CREATED)

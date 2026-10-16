@@ -25,6 +25,28 @@ docker compose up --build
 > (`postgres://ecalt:ecalt@localhost:5433/ecalt`) para não brigar com um
 > Postgres local na 5432.
 
+### Subdomínios locais
+
+Defina `PUBLIC_BASE_DOMAIN=lvh.me` no ambiente Django e inclua `*.lvh.me`
+(ou `.lvh.me`) em `DJANGO_ALLOWED_HOSTS`. O domínio `lvh.me` resolve para
+`127.0.0.1`, então uma chamada à API pode ser testada com um Host como
+`studio-ana-ana.lvh.me:8000`. Alternativamente, crie entradas para os nomes
+usados em `/etc/hosts`, apontando-os para `127.0.0.1`. O middleware resolve
+organizações nas rotas `/b/`; a página de reserva será integrada nessa fase.
+
+## Deploy com subdomínio curinga
+
+Configure `PUBLIC_BASE_DOMAIN` com o domínio público (por exemplo,
+`eclatstudio.com.br`) e `DJANGO_ALLOWED_HOSTS` com os hosts da API e do serviço.
+Na zona DNS, crie `*.DOMINIO_BASE` apontando para o serviço hospedado no Render
+ou Railway. Uma configuração recomendada é usar Cloudflare na frente: mantenha
+o registro curinga com o proxy ativo para obter SSL curinga gratuito no edge.
+Certificados curinga automáticos têm limitações nos planos gratuitos do Render
+e Railway, portanto o TLS deve ser planejado também entre Cloudflare e o serviço
+de origem conforme o modo SSL escolhido. Essa escolha é de infraestrutura, não
+de código; o middleware resolve o tenant pelo Host independentemente de onde o
+SSL é terminado.
+
 ## Fase 1 implementada (backend/API)
 
 - **Auth**: registro (User + salão + OWNER numa transação), login/refresh/logout

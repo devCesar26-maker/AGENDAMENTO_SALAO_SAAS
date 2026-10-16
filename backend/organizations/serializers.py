@@ -21,6 +21,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
+            "vertical",
+            "tema_cor",
             "timezone",
             "phone",
             "address",
@@ -28,7 +30,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "vertical", "tema_cor"]
 
     def validate_slug(self, value: str) -> str:
         """Slug editável, mas sempre único (case-sensitive baixo: slugify já minúsculas)."""

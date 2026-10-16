@@ -16,7 +16,15 @@ from core.models import TenantScopedManager, TimeStampedModel
 class Organization(TimeStampedModel):
     """Um salão/barbearia (tenant) na plataforma."""
 
+    class Vertical(models.TextChoices):
+        SALAO = "SALAO", "Salão"
+        BARBEARIA = "BARBEARIA", "Barbearia"
+
     name = models.CharField("nome", max_length=120)
+    vertical = models.CharField(
+        "vertical", max_length=20, choices=Vertical.choices, default=Vertical.SALAO
+    )
+    tema_cor = models.CharField("tema de cor", max_length=7, default="#8B5CF6")
     slug = models.SlugField(
         "slug",
         max_length=60,

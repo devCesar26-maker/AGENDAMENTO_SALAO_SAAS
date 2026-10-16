@@ -87,6 +87,14 @@ class TestOrganizationUpdate:
             == 403
         )
 
+    def test_apenas_owner_pode_editar_slug(self, api_client, organization):
+        manager = add_member(organization, "MANAGER")
+        api_client.force_authenticate(user=manager)
+        response = api_client.patch(org_url(organization), {"slug": "novo-slug"}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        organization.refresh_from_db()
+        assert organization.slug != "novo-slug"
+
     def test_slug_duplicado_rejeitado(self, api_client, organization):
         OrganizationFactory(name="Outro Studio")
         api_client.force_authenticate(user=organization._owner)

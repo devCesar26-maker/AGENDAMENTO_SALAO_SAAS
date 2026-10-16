@@ -15,6 +15,8 @@ CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+if env("PUBLIC_BASE_DOMAIN", "").strip():
+    ALLOWED_HOSTS.append(f".{env('PUBLIC_BASE_DOMAIN').strip().lstrip('.')}")
 if not ALLOWED_HOSTS:
     raise RuntimeError("DJANGO_ALLOWED_HOSTS é obrigatório em produção.")
 if env("DJANGO_SECRET_KEY", "").startswith("dev-only"):
