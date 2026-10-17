@@ -7,6 +7,27 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 
+def tenant_user_payload(user):
+    membership = (
+        user.memberships.filter(is_active=True)
+        .select_related("organization")
+        .order_by("created_at")
+        .first()
+    )
+    return {
+        "id": user.id,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "organization": (
+            {"id": membership.organization_id, "slug": membership.organization.slug}
+            if membership
+            else None
+        ),
+        "role": membership.role if membership else None,
+    }
+
+
 class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Login por e-mail; embute organização ativa e role no access token."""
 
@@ -28,24 +49,7 @@ class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        membership = (
-            self.user.memberships.filter(is_active=True)
-            .select_related("organization")
-            .order_by("created_at")
-            .first()
-        )
-        data["user"] = {
-            "id": self.user.id,
-            "email": self.user.email,
-            "first_name": self.user.first_name,
-            "last_name": self.user.last_name,
-            "organization": (
-                {"id": membership.organization_id, "slug": membership.organization.slug}
-                if membership
-                else None
-            ),
-            "role": membership.role if membership else None,
-        }
+        data["user"] = tenant_user_payload(self.user)
         return data
 
 

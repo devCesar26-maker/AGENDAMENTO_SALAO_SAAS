@@ -226,6 +226,13 @@ CORS_ALLOW_CREDENTIALS = True
 # Cookies (refresh JWT e futura sessão de admin).
 SESSION_COOKIE_SECURE = env_bool("COOKIE_SECURE", False)
 CSRF_COOKIE_SECURE = env_bool("COOKIE_SECURE", False)
+REFRESH_TOKEN_COOKIE_NAME = env("REFRESH_TOKEN_COOKIE_NAME", "refresh")
+REFRESH_TOKEN_COOKIE_PATH = env("REFRESH_TOKEN_COOKIE_PATH", "/api/v1/auth/")
+REFRESH_TOKEN_COOKIE_DOMAIN = env("REFRESH_TOKEN_COOKIE_DOMAIN", "") or None
+REFRESH_TOKEN_COOKIE_SECURE = env_bool(
+    "REFRESH_TOKEN_COOKIE_SECURE", env_bool("COOKIE_SECURE", False)
+)
+REFRESH_TOKEN_COOKIE_SAMESITE = env("REFRESH_TOKEN_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_HTTPONLY = False  # frontend precisa ler o token para POSTs com cookie
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173").split(",") if o.strip()

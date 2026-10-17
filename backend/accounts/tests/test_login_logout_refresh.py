@@ -1,6 +1,7 @@
 """Testes de /auth/login/, /auth/refresh/ e /auth/logout/."""
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
@@ -35,12 +36,20 @@ class TestLogin:
     def _payload(self, email="login@studio.com.br", senha=SENHA):
         return {"email": email, "password": senha}
 
-    def test_login_valido_retorna_access_e_refresh(self, api_client, user_com_membership):
+    def test_login_valido_retorna_access_e_define_cookie_de_refresh(
+        self, api_client, user_com_membership
+    ):
         response = api_client.post(LOGIN_URL, self._payload(), format="json")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert "access" in data and "refresh" in data
+        assert "access" in data and "refresh" not in data
+        cookie = response.cookies[settings.REFRESH_TOKEN_COOKIE_NAME]
+        assert cookie.value
+        assert cookie["httponly"]
+        assert cookie["samesite"] == "Lax"
+        assert cookie["secure"] == ""
+        assert cookie["path"] == settings.REFRESH_TOKEN_COOKIE_PATH
         assert data["user"]["email"] == "login@studio.com.br"
         assert data["user"]["organization"] is not None
 
@@ -129,30 +138,36 @@ class TestRefreshAndLogout:
         response = api_client.post(
             LOGIN_URL, {"email": "login@studio.com.br", "password": SENHA}, format="json"
         )
-        return response.json()
+        tokens = response.json()
+        tokens["refresh"] = response.cookies[settings.REFRESH_TOKEN_COOKIE_NAME].value
+        return tokens
 
     def test_refresh_gera_novo_access_e_rotaciona(self, api_client, user_com_membership):
         tokens = self._login(api_client)
-        response = api_client.post(REFRESH_URL, {"refresh": tokens["refresh"]}, format="json")
+        response = api_client.post(REFRESH_URL, {}, format="json")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["access"] != tokens["access"]
+        assert response.json()["user"]["email"] == "login@studio.com.br"
+        assert response.cookies[settings.REFRESH_TOKEN_COOKIE_NAME].value != tokens["refresh"]
 
     def test_refresh_token_antigo_e_blacklistado_apos_rotacao(
         self, api_client, user_com_membership
     ):
         tokens = self._login(api_client)
-        api_client.post(REFRESH_URL, {"refresh": tokens["refresh"]}, format="json")
-        reuso = api_client.post(REFRESH_URL, {"refresh": tokens["refresh"]}, format="json")
+        api_client.post(REFRESH_URL, {}, format="json")
+        api_client.cookies[settings.REFRESH_TOKEN_COOKIE_NAME] = tokens["refresh"]
+        reuso = api_client.post(REFRESH_URL, {}, format="json")
 
         assert reuso.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_logout_blacklista_refresh_token(self, api_client, user_com_membership):
         tokens = self._login(api_client)
         api_client.force_authenticate(user=user_com_membership)
-        response = api_client.post(LOGOUT_URL, {"refresh": tokens["refresh"]}, format="json")
+        response = api_client.post(LOGOUT_URL, {}, format="json")
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.cookies[settings.REFRESH_TOKEN_COOKIE_NAME]["max-age"] == 0
         reuso = api_client.post(REFRESH_URL, {"refresh": tokens["refresh"]}, format="json")
         assert reuso.status_code == status.HTTP_401_UNAUTHORIZED
 

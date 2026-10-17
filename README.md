@@ -180,12 +180,24 @@ documentada nos docstrings e registrada em testes de IDOR
 
 - **Access token**: **em memória apenas** (ex.: um `useState`/var de módulo). NUNCA
   em localStorage/sessionStorage nem em cookie acessível a scripts — XSS lería.
-- **Refresh token**: cookie `httpOnly; Secure; SameSite=Strict` enviado a
-  `/auth/refresh/`; nesse padrão o access token rota (15 min) e a sessão é
-  curta. Este backend já habilita rotação + blacklist
+- **Refresh token**: cookie `httpOnly` restrito a `/api/v1/auth/`, renovado no
+  login e em cada refresh. A API não devolve o refresh no JSON. O refresh inclui
+  também o perfil do usuário para o frontend reconstruir o contexto de sessão
+  após F5. Este backend habilita rotação + blacklist
   (SimpleJWT: `ROTATE_REFRESH_TOKENS=True, BLACKLIST_AFTER_ROTATION=True`),
   então um refresh reutilizado é invalidado — proteção contra replay.
-- Logout no backend: posterblacklist do refresh em `/auth/logout/`.
+- Logout no backend: blacklista o refresh recebido pelo cookie e remove o cookie.
+- **Desenvolvimento local**: acesse o Vite por `http://localhost:5173` e deixe
+  `VITE_API_BASE_URL` sem definir em `frontend/.env`. O Axios usa `/api/v1` e o
+  proxy do Vite encaminha as chamadas ao backend, mantendo o cookie same-origin.
+  O cookie usa `SameSite=Lax`, `Secure=False` e sem `Domain` por padrão local;
+  as portas diferentes não tornam as origens cross-site.
+- **Produção**: `config.settings.prod` força `Secure=True`. O padrão
+  `SameSite=Lax` atende frontend e API no mesmo site; para domínios realmente
+  cross-site, configure explicitamente `REFRESH_TOKEN_COOKIE_SAMESITE=None`,
+  HTTPS e CORS com credenciais/origens explícitas. `VITE_API_BASE_URL` só é
+  necessário quando frontend e API não são servidos pelo mesmo domínio/origem
+  (por exemplo, preview deploys).
 
 ## Testes
 

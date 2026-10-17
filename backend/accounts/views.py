@@ -2,16 +2,42 @@
 Endpoints de autenticação e perfil (views finas; regras em services.py).
 """
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts import serializers, services
 from accounts.models import User
-from core.api.jwt import TenantTokenObtainPairSerializer
+from core.api.jwt import TenantTokenObtainPairSerializer, tenant_user_payload
 from core.api.throttling import AuthRateThrottle
+
+
+def set_refresh_cookie(response, token):
+    response.set_cookie(
+        settings.REFRESH_TOKEN_COOKIE_NAME,
+        token,
+        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+        httponly=True,
+        secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        path=settings.REFRESH_TOKEN_COOKIE_PATH,
+        domain=settings.REFRESH_TOKEN_COOKIE_DOMAIN,
+    )
+
+
+def clear_refresh_cookie(response):
+    response.delete_cookie(
+        settings.REFRESH_TOKEN_COOKIE_NAME,
+        path=settings.REFRESH_TOKEN_COOKIE_PATH,
+        domain=settings.REFRESH_TOKEN_COOKIE_DOMAIN,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+    )
 
 
 # Views de obtenção/renovação de JWT (rotação + blacklist habilitadas na config).
@@ -20,9 +46,35 @@ class LoginView(TokenObtainPairView):
     throttle_classes = [AuthRateThrottle]
     throttle_scope = "auth"
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK and "refresh" in response.data:
+            refresh = response.data.pop("refresh")
+            set_refresh_cookie(response, refresh)
+        return response
+
 
 class RefreshTokenView(TokenRefreshView):
-    pass  # não throttlea para não quebrar evitação de relogio do 401 do refresh
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data.setdefault("refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, ""))
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+        response_data = serializer.validated_data
+        refresh = response_data.pop("refresh", None)
+        access = response_data.get("access")
+        if access:
+            user_id = AccessToken(access).get("user_id")
+            user = get_user_model().objects.filter(pk=user_id).first()
+            if user:
+                response_data["user"] = tenant_user_payload(user)
+        response = Response(response_data, status=status.HTTP_200_OK)
+        if refresh:
+            set_refresh_cookie(response, refresh)
+        return response
 
 
 class RegisterView(APIView):
@@ -77,10 +129,14 @@ class LogoutView(APIView):
         tags=["auth"],
     )
     def post(self, request):
-        logout_serializer = serializers.LogoutSerializer(data=request.data)
+        data = request.data.copy()
+        data.setdefault("refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, ""))
+        logout_serializer = serializers.LogoutSerializer(data=data)
         logout_serializer.is_valid(raise_exception=True)
         logout_serializer.save()
-        return Response({"detail": "Logout realizado com sucesso."}, status=status.HTTP_200_OK)
+        response = Response({"detail": "Logout realizado com sucesso."}, status=status.HTTP_200_OK)
+        clear_refresh_cookie(response)
+        return response
 
 
 class PasswordResetRequestView(APIView):
