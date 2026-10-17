@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from core.api.pagination import DefaultPagination
 from core.api.throttling import PublicBookingRateThrottle
 from core.tenant import TenantSerializerContextMixin, resolve_membership
+from customers import services as customer_services
 from customers.models import Customer
 from notifications.models import WaitlistEntry
 from notifications.permissions import WaitlistManagerAccess
@@ -74,6 +75,9 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
         data = serializer.validated_data
 
         with transaction.atomic():
+            customer_services.lock_customer_identity(
+                organization, phone=data["phone"], email=data["email"]
+            )
             identity = Q(phone=data["phone"]) | Q(email__iexact=data["email"])
             matches = list(
                 Customer.objects.select_for_update()
@@ -88,16 +92,18 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
             now = timezone.now()
             if matches:
                 customer = matches[0]
-                customer.name = data["name"]
-                customer.phone = data["phone"]
-                customer.email = data["email"]
+                if (
+                    customer.phone != data["phone"]
+                    or customer.email.casefold() != data["email"].casefold()
+                ):
+                    raise serializers.ValidationError(
+                        "Os contatos informados não correspondem ao cadastro existente. "
+                        "Fale com o salão para atualizar seus dados."
+                    )
                 customer.lgpd_consent = True
                 customer.lgpd_consent_at = now
                 customer.save(
                     update_fields=[
-                        "name",
-                        "phone",
-                        "email",
                         "lgpd_consent",
                         "lgpd_consent_at",
                     ]

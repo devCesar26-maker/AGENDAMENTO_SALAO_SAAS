@@ -33,7 +33,7 @@ class PublicBookingTenantMiddleware:
         if slug is None and is_booking_page:
             slug = request.path.strip("/").split("/")[1:2]
             slug = slug[0] if slug else None
-        if slug is None and is_public_api:
+        if slug is None and is_public_api and settings.PUBLIC_TENANT_HEADER_FALLBACK:
             slug = request.headers.get("X-Tenant-Slug")
 
         if slug is None or slugify(slug) != slug:

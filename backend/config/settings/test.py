@@ -3,6 +3,12 @@
 from .base import *  # noqa: F403
 
 DEBUG = False
+PUBLIC_TENANT_HEADER_FALLBACK = True
+MIDDLEWARE = [
+    middleware
+    for middleware in MIDDLEWARE  # noqa: F405
+    if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"
+]
 
 # Celery síncrono nos testes: assertions sobre efeitos colaterais funcionam direto.
 CELERY_TASK_ALWAYS_EAGER = True
@@ -24,4 +30,5 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
-SECRET_KEY = "test-secret-key-not-for-production"
+SECRET_KEY = "test-only-random-looking-signing-key-longer-than-thirty-two-bytes"
+SIMPLE_JWT = {**SIMPLE_JWT, "SIGNING_KEY": SECRET_KEY}  # noqa: F405

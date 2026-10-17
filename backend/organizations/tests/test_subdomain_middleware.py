@@ -51,3 +51,20 @@ def test_api_publica_aceita_slug_explicito_enviado_pela_pagina_local():
     )
     assert response.status_code == 200
     assert response.content.decode() == str(organization.pk)
+
+
+@pytest.mark.django_db
+@override_settings(
+    PUBLIC_BASE_DOMAIN="eclatstudio.com.br",
+    PUBLIC_TENANT_HEADER_FALLBACK=False,
+    ALLOWED_HOSTS=[".eclatstudio.com.br"],
+)
+def test_api_publica_em_producao_ignora_slug_de_header_fora_do_subdominio():
+    OrganizationFactory(slug="tenant-alvo")
+    request = RequestFactory().get(
+        "/api/v1/public/catalog/",
+        HTTP_HOST="api.eclatstudio.com.br",
+        HTTP_X_TENANT_SLUG="tenant-alvo",
+    )
+    response = PublicBookingTenantMiddleware(lambda req: HttpResponse("ok"))(request)
+    assert response.status_code == 404

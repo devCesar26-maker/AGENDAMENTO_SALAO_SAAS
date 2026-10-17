@@ -14,12 +14,22 @@ Projeto em construção — em desenvolvimento ativo, fase a fase.
 ## Como rodar (desenvolvimento)
 
 ```bash
+cp backend/.env.example backend/.env
 docker compose up --build
 # API:        http://localhost:8000/api/v1/
 # Swagger:    http://localhost:8000/api/docs/
 # Mailhog:    http://localhost:8025
 # Frontend:   http://localhost:5173
 ```
+
+O Compose é exclusivamente para desenvolvimento local. Em produção use a
+imagem `backend/Dockerfile` (Gunicorn, dependências runtime e `collectstatic`),
+injete secrets pelo orquestrador e execute migrations como etapa de deploy.
+O `.env` local é excluído do contexto de build. A configuração de produção
+exige PostgreSQL remoto com `DB_SSL_REQUIRE=1`, Redis remoto, `DRF_NUM_PROXIES`
+correto para o ingress e origens HTTPS explícitas para frontend, CORS e CSRF.
+O ingress deve sobrescrever os cabeçalhos `X-Forwarded-For` e
+`X-Forwarded-Proto` antes de encaminhar as requisições.
 
 > Sem Docker, o banco do compose publica **5433** no host
 > (`postgres://ecalt:ecalt@localhost:5433/ecalt`) para não brigar com um
@@ -32,7 +42,8 @@ Defina `PUBLIC_BASE_DOMAIN=lvh.me` no ambiente Django e inclua `*.lvh.me`
 `127.0.0.1`, então uma chamada à API pode ser testada com um Host como
 `studio-ana-ana.lvh.me:8000`. Alternativamente, crie entradas para os nomes
 usados em `/etc/hosts`, apontando-os para `127.0.0.1`. O middleware resolve
-organizações nas rotas `/b/`; a página de reserva será integrada nessa fase.
+organizações pelo subdomínio e mantém `/b/<slug>/` como fallback local da
+página pública de reserva.
 
 ## Deploy com subdomínio curinga
 
@@ -147,10 +158,18 @@ SSL é terminado.
 `PUBLIC_PAGE` é a origem registrada pelo servidor para agendamentos criados na
 página pública de reserva.
 
+## Fase 4 implementada (frontend)
+
+- Agenda de semana/dia com criação por slot, remarcação com reversão visual em
+  conflito, alteração de status e filtragem conforme o papel de profissional.
+- Reserva pública responsiva, consulta de disponibilidade por tenant,
+  consentimento LGPD e tratamento de limite de requisições.
+
 ### Notificações e lista de espera (Fase 5)
 
-- Confirmações, lembretes 24h antes e cancelamentos são enviados por tasks
-  Celery depois do commit da transação. O Beat verifica a cada
+- Confirmações, cancelamentos e avisos da lista de espera entram numa outbox
+  transacional e o Beat entrega os e-mails com retentativa; falha no broker não
+  desfaz a requisição. O Beat verifica a cada
   `REMINDER_CRON_SECONDS` (padrão: 900 segundos) os horários na janela de
   23h50–24h10 e registra `reminder_sent_at` para evitar repetição.
 - **Endpoints autenticados** (OWNER/MANAGER): `GET/POST /api/v1/waitlist/` e
@@ -158,6 +177,11 @@ página pública de reserva.
 - **Inscrição pública**: `POST /api/v1/public/waitlist/`, resolvida pelo Host ou
   `X-Tenant-Slug` em desenvolvimento. Recebe contato, consentimento, serviço,
   profissional opcional e data desejada. A organização nunca é aceita do corpo.
+- **Reserva pública**: `GET /api/v1/public/catalog/`, `GET
+  /api/v1/public/professionals/`, `GET /api/v1/public/availability/` e `POST
+  /api/v1/public/appointments/`. As rotas são escopadas pelo subdomínio; o
+  fallback `X-Tenant-Slug` fica habilitado apenas em dev/test. Não existe busca
+  pública de clientes.
 - Ao cancelar um agendamento, entradas ainda não notificadas que coincidam
   com serviço, profissional (ou qualquer profissional) e data local recebem um
   e-mail. A vaga não fica reservada: **quem concluir o agendamento primeiro
@@ -267,8 +291,15 @@ Lint/format/segurança:
 ```bash
 ruff check backend && black --check backend
 bandit -r backend -x "backend/*/migrations/*,backend/config/settings/*,backend/*/tests/*"
-pip-audit -r backend/requirements.txt
+pip-audit -r backend/requirements.txt && pip-audit -r backend/requirements-prod.txt
 ```
+
+O throttling usa `REMOTE_ADDR` por padrão (`DRF_NUM_PROXIES=0`). Se a API
+estiver atrás de proxies, configure a quantidade em `DRF_NUM_PROXIES` e faça
+o ingress sobrescrever `X-Forwarded-For`; nunca aceite esse cabeçalho enviado
+diretamente pelo cliente. O fallback `X-Tenant-Slug` é habilitado apenas em
+desenvolvimento; em produção, as rotas públicas devem usar o subdomínio do
+tenant.
 
 Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 `manage.py check`/`makemigrations --check` e build de frontend.

@@ -11,11 +11,14 @@ from scheduling.models import Appointment, AppointmentItem
 
 
 class AvailabilityQuerySerializer(serializers.Serializer):
+    MAX_SERVICES = 5
     services = serializers.CharField()
     professional = serializers.CharField()
     date = serializers.DateField()
 
     def validate_services(self, value):
+        if len(value) > 64:
+            raise serializers.ValidationError("Informe no máximo cinco serviços por reserva.")
         try:
             ids = [int(pk) for pk in value.split(",")]
         except ValueError as exc:
@@ -24,6 +27,10 @@ class AvailabilityQuerySerializer(serializers.Serializer):
             ) from exc
         if not ids or any(pk < 1 for pk in ids) or len(ids) != len(set(ids)):
             raise serializers.ValidationError("Informe IDs de serviços válidos e sem repetição.")
+        if len(ids) > self.MAX_SERVICES:
+            raise serializers.ValidationError(
+                f"Escolha no máximo {self.MAX_SERVICES} serviços por reserva."
+            )
         return ids
 
     def validate_professional(self, value):
@@ -38,6 +45,26 @@ class AvailabilityQuerySerializer(serializers.Serializer):
         return pk
 
 
+class AvailabilityItemResponseSerializer(serializers.Serializer):
+    service = serializers.IntegerField()
+    professional = serializers.IntegerField()
+    start_at = serializers.DateTimeField()
+    end_at = serializers.DateTimeField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    commission_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, required=False)
+
+
+class AvailabilitySlotResponseSerializer(serializers.Serializer):
+    start_at = serializers.DateTimeField()
+    items = AvailabilityItemResponseSerializer(many=True)
+
+
+class AvailabilityResponseSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    timezone = serializers.CharField()
+    slots = AvailabilitySlotResponseSerializer(many=True)
+
+
 class AppointmentItemInputSerializer(serializers.Serializer):
     service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.all())
     professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all())
@@ -46,7 +73,7 @@ class AppointmentItemInputSerializer(serializers.Serializer):
 
 class AppointmentCreateSerializer(serializers.Serializer):
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
-    items = AppointmentItemInputSerializer(many=True, allow_empty=False)
+    items = AppointmentItemInputSerializer(many=True, allow_empty=False, max_length=5)
     start_at = serializers.DateTimeField()
     notes = serializers.CharField(required=False, allow_blank=True)
 
@@ -104,7 +131,7 @@ class PublicAppointmentCreateSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20, trim_whitespace=True)
     email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
     consent = serializers.BooleanField()
-    items = AppointmentItemInputSerializer(many=True, allow_empty=False)
+    items = AppointmentItemInputSerializer(many=True, allow_empty=False, max_length=5)
     start_at = serializers.DateTimeField()
 
     def __init__(self, *args, **kwargs):

@@ -2,7 +2,7 @@
 
 from zoneinfo import ZoneInfo
 
-from django.db.models import Prefetch, Q
+from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.utils import timezone
 
 from notifications.models import WaitlistEntry
@@ -26,6 +26,9 @@ def appointment_for_notification(appointment_id):
 
 
 def reminder_candidates(window_start, window_end):
+    matching_item = AppointmentItem.objects.filter(
+        appointment_id=OuterRef("pk"), start_at__range=(window_start, window_end)
+    )
     return (
         Appointment.objects.select_related("organization", "customer")
         .prefetch_related(
@@ -36,13 +39,13 @@ def reminder_candidates(window_start, window_end):
                 ),
             )
         )
+        .annotate(has_item_in_window=Exists(matching_item))
         .filter(
             status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
             reminder_sent_at__isnull=True,
             customer__email__gt="",
-            items__start_at__range=(window_start, window_end),
+            has_item_in_window=True,
         )
-        .distinct()
     )
 
 

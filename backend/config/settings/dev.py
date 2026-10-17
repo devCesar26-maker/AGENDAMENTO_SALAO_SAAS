@@ -4,6 +4,7 @@ from .base import *  # noqa: F403
 from .base import env, env_bool, env_int
 
 DEBUG = env_bool("DJANGO_DEBUG", True)
+PUBLIC_TENANT_HEADER_FALLBACK = env_bool("PUBLIC_TENANT_HEADER_FALLBACK", True)
 
 # django-debug-toolbar apenas em dev (valida N+1 manualmente; testes usam assert).
 INTERNAL_IPS = ["127.0.0.1"]

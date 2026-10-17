@@ -1,6 +1,8 @@
 #
-# Fonte da verdade das dependências. Para regenerar o lock:
-#   pip install pip-tools && pip-compile backend/requirements.in
+# Fonte da verdade das dependências. Gere primeiro o lock runtime e use-o
+# como constraints para manter os mesmos pins em dev/test:
+#   pip-compile -o backend/requirements-prod.txt backend/requirements-prod.in
+#   pip-compile -c backend/requirements-prod.txt -o backend/requirements.txt backend/requirements.in
 #
 Django==5.2.*
 djangorestframework==3.17.*
@@ -21,13 +23,13 @@ dj-database-url==3.0.*
 python-dotenv==1.2.*
 
 # Dev / testes
-pytest==8.4.*
+pytest==9.0.3
 pytest-django==4.11.*
 pytest-cov==6.*
 factory_boy==3.3.*
 freezegun==1.5.*
 django-debug-toolbar==5.*
 ruff==0.14.*
-black==25.*
+black==26.3.1
 bandit==1.8.*
 pip-audit==2.9.*

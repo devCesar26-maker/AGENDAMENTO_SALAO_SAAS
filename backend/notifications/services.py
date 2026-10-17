@@ -5,7 +5,16 @@ from zoneinfo import ZoneInfo
 from django.db.models import Q
 from django.utils import timezone
 
-from notifications.models import WaitlistEntry
+from notifications.models import NotificationEvent, WaitlistEntry
+
+
+def queue_appointment_notification(appointment, kind):
+    """Persiste o evento na mesma transação da alteração de agendamento."""
+    return NotificationEvent.objects.get_or_create(
+        organization=appointment.organization,
+        appointment=appointment,
+        kind=kind,
+    )[0]
 
 
 def mark_waitlist_entries_converted(appointment):

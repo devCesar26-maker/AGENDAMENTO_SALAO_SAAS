@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ecalt
       POSTGRES_DB: ecalt
     ports:
-      - "5433:5432" # host não pode usar 5432 (postgres do sistema já ocupado)
+      - "127.0.0.1:5433:5432" # apenas desenvolvimento local
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -26,14 +26,29 @@ services:
   mailhog:
     image: mailhog/mailhog:v1.0.1
     ports:
-      - "8025:8025" # UI em http://localhost:8025
+      - "127.0.0.1:8025:8025" # UI em http://localhost:8025
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: python manage.py migrate --noinput
+    env_file: ./backend/.env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
 
   api:
-    build: ./backend
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
-    env_file: ./backend/.env.example
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: python manage.py runserver 0.0.0.0:8000
+    env_file: ./backend/.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
       CELERY_TASK_EAGER: 0
@@ -45,17 +60,19 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
 
   worker:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
     command: celery -A config worker -l info
-    env_file: ./backend/.env.example
+    env_file: ./backend/.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
       CELERY_TASK_EAGER: 0
@@ -67,13 +84,17 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      api:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
   beat:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
     command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
-    env_file: ./backend/.env.example
+    env_file: ./backend/.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
       DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
@@ -84,26 +105,26 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      api:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
-  # ── frontend (DESATIVADO nesta fase) ──────────────────────────────────────
-  # O frontend é apenas o scaffold inicial e não está sendo trabalhado nesta
-  # fase — e o build aponta para ./frontend/Dockerfile, que ainda não existe,
-  # o que quebra o `docker compose up --build`. Comentado até a fase de
-  # frontend começar; então basta descomentar o bloco abaixo (e criar o
-  # Dockerfile).
-  #
-  # frontend:
-  #   build: ./frontend
-  #   command: npm run dev -- --host
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - api
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - api
 
 volumes:
   pgdata:
+  frontend_node_modules:

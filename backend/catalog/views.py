@@ -145,6 +145,8 @@ class ProfessionalListCreateView(_TenantViewSetBase, generics.ListCreateAPIView)
         return ProfessionalSerializer
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Professional.objects.none()
         organization = self.request.organization or resolve_tenant(self.request)
         return selectors.list_professionals(organization)
 

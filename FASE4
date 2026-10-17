@@ -19,21 +19,38 @@ Feito
 - Testes cobrem API pública, consentimento, origem forçada, isolamento por host/tenant, fallback local, rate limit por IP e contato e reagendamento.
 
 Validação
-- Backend: suíte completa passou; cobertura total 94,10% (limite exigido: 80%).
+- Backend: suíte completa passou; 191 testes, cobertura total 94,92% (limite exigido: 80%).
 - Ruff: `ruff check backend` passou.
-- Black: todos os arquivos Python do backend, exceto migrations (excluídas pela configuração Black do projeto), passaram `black --check`.
-- Frontend: lint, build e testes passaram (4 arquivos, 7 testes).
-- Frontend lint mantém avisos de Fast Refresh em auth.tsx e compatibilidade do React Hook Form; build alerta que o bundle principal ultrapassa 500 kB.
+- Black 26.3.1: os 117 arquivos Python do backend passaram `black --check`; migrations são excluídas pela configuração do projeto.
+- Frontend: lint, build e testes passaram (5 arquivos, 9 testes); páginas foram divididas em chunks e nenhum bundle passa de 500 kB.
+- `npm audit --audit-level=high`: zero vulnerabilidades.
+- `pip-audit` nos locks completo e runtime: zero vulnerabilidades conhecidas.
+- Bandit não encontrou problemas; `manage.py check --deploy` não reportou issues.
+- `makemigrations --check --dry-run`: nenhuma migration faltando; migration da outbox aplicada no PostgreSQL do Compose.
+- SMTP local validado: mensagem fictícia foi aceita e encontrada pela API do Mailhog.
+- Imagem de produção construída; `collectstatic` concluiu com 169 arquivos copiados e 485 processados.
+
+Auditoria pré-Fase 6 (17/10/2026)
+- Separadas dependências runtime e ferramentas de desenvolvimento; os locks compartilham os mesmos pins runtime. Removidos ignores de advisories do CI e atualizado Black para a versão corrigida.
+- CI aponta cobertura para os módulos reais das apps. O teste não carrega `backend/.env`, usa uma chave JWT exclusiva com tamanho seguro e não inclui middleware de estáticos.
+- O provider de autenticação e o hook de contexto foram separados para manter Fast Refresh limpo; as páginas maiores carregam sob demanda e reduzem o bundle inicial para menos de 500 kB.
+- Imagens Docker agora excluem `.env`, rodam como usuário sem privilégios e a imagem de produção usa Gunicorn e apenas dependências runtime. O Compose foi corrigido para inicializar migrations antes da API, worker e Beat, e agora inclui o frontend.
+- Throttling interpreta `REMOTE_ADDR` por padrão; a contagem de proxies deve ser configurada explicitamente em produção. `X-Tenant-Slug` fica desativado em produção.
+- A entrada pública de contato não altera nome/telefone/e-mail de clientes existentes. Locks consultivos por identidade evitam serialização de todas as reservas do tenant.
+- Limite de disponibilidade pública fixado em cinco serviços por chamada. Configuração de produção exige PostgreSQL remoto com TLS, Redis remoto, HTTPS/CORS/CSRF explícitos e SMTP transacional.
+- E-mails de confirmação/cancelamento/lista de espera usam outbox transacional; indisponibilidade momentânea do broker deixa a notificação pendente para retentativa.
 - npm audit --audit-level=high: zero vulnerabilidades.
 
 Falhas e limites encontrados
-- A execução inicial não alcançava o PostgreSQL configurado; a suíte final rodou no serviço `db` do Compose pela porta local 5433.
-- Os primeiros testes apontaram problemas no teste de horários, no retorno da remarcação e na resolução local do slug; foram corrigidos e passaram na execução final.
+- A primeira repetição da suíte apontou diferença de contagem de queries e expectativa de texto incorreta em dois testes; ambos foram corrigidos, e a suíte final passou.
+- A auditoria npm não conseguiu acessar DNS na primeira tentativa sandbox; repetida com acesso à registry, confirmou zero vulnerabilidades.
 - A contagem do limite por cliente inclui reservas canceladas dentro da janela de 24 horas; isso reduz abuso via repetidos cancelamentos.
 - A classificação como cliente recorrente considera qualquer agendamento `COMPLETED` no histórico do mesmo tenant. A contagem da janela continua incluindo todos os status, inclusive cancelados.
+- A outbox fornece entrega pelo menos uma vez: uma queda depois que o SMTP aceita uma mensagem, mas antes de persistir `SENT`, pode causar duplicidade na retentativa.
+- `check --deploy` foi validado com valores fictícios. Domínio/DNS, certificado, cadeia real de proxies, credenciais, conectividade PostgreSQL/Redis/SMTP e entrega via Mailhog/Brevo precisam ser confirmados no ambiente de implantação.
 
 Melhorias recomendadas
-- Adicionar persistência/observabilidade de throttle distribuído se múltiplas instâncias da API passarem a servir tráfego público.
-- Considerar chaves de idempotência no POST público para lidar com repetição por timeout/rede móvel.
-- Dividir o bundle com lazy loading, especialmente as páginas que importam FullCalendar.
-- Completar a seleção de vários serviços/profissionais no formulário interno e mapear explicitamente o perfil profissional ao usuário autenticado.
+- Adicionar chaves de idempotência na criação pública para requests repetidos por timeout/rede móvel.
+- Avaliar verificação de posse de telefone/e-mail (OTP) para reduzir reservas em nome de terceiros e dar maior evidência ao consentimento LGPD.
+- Monitorar idade/tentativas dos eventos da outbox e alertar quando notificações ficarem pendentes por período prolongado.
+- Configurar os segredos e as opções de TLS/proxy conforme o provedor escolhido antes do primeiro deploy público; nenhuma auditoria estática substitui um teste de intrusão no ambiente implantado.

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Em dev/test carrega backend/.env se existir; em prod as variáveis vêm do host.
-if os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(("dev", "test")):
+if os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".dev"):
     load_dotenv(BASE_DIR / ".env")
 
 PROJECT_NAME = "Éclat Studio"
@@ -175,6 +175,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "core.api.pagination.DefaultPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Configure com o número de proxies confiáveis. O ingress deve sobrescrever
+    # X-Forwarded-For antes de encaminhar ao Django.
+    "NUM_PROXIES": env_int("DRF_NUM_PROXIES", 0),
     "DEFAULT_THROTTLE_CLASSES": ("core.api.throttling.RoleUserRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {
         "user": "600/min",
@@ -183,6 +186,7 @@ REST_FRAMEWORK = {
     },
     "EXCEPTION_HANDLER": "core.api.exceptions.exception_handler",
 }
+PUBLIC_TENANT_HEADER_FALLBACK = env_bool("PUBLIC_TENANT_HEADER_FALLBACK", False)
 
 # SimpleJWT: access curto em memória; refresh longo com rotação e blacklist.
 SIMPLE_JWT = {
@@ -273,6 +277,10 @@ CELERY_BEAT_SCHEDULE = {
     "lembretes-24h": {
         "task": "notifications.tasks.send_appointment_reminders",
         "schedule": env_int("REMINDER_CRON_SECONDS", 900),  # a cada 15 min
+    },
+    "notification-outbox": {
+        "task": "notifications.tasks.dispatch_notification_outbox",
+        "schedule": env_int("OUTBOX_CRON_SECONDS", 30),
     },
 }
 

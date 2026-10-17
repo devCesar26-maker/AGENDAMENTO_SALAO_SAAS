@@ -1,6 +1,7 @@
 """Cobertura de tarefas de e-mail, lembretes e lista de espera."""
 
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -16,8 +17,8 @@ from catalog.factories import (
     WorkingHoursFactory,
 )
 from customers.factories import CustomerFactory
-from notifications.models import WaitlistEntry
-from notifications.tasks import send_appointment_reminders
+from notifications.models import NotificationEvent, WaitlistEntry
+from notifications.tasks import dispatch_notification_outbox, send_appointment_reminders
 from scheduling.models import Appointment, AppointmentItem
 from scheduling.services import change_appointment_status, create_appointment
 
@@ -73,27 +74,57 @@ def create_raw_appointment(organization, service, professional, customer, start_
 
 
 @pytest.mark.django_db
-def test_criar_agendamento_agenda_email_de_confirmacao_no_commit(
-    organization, django_capture_on_commit_callbacks
-):
+def test_criar_agendamento_persiste_confirmacao_no_outbox(organization):
     _, service, professional, customer, start_at = make_schedule(organization)
     mail.outbox.clear()
 
-    with django_capture_on_commit_callbacks(execute=True):
-        appointment = create_appointment(
-            organization=organization,
-            customer=customer,
-            items=[{"service": service, "professional": professional, "order": 0}],
-            desired_start=start_at,
-            membership=organization.memberships.first(),
-        )
+    appointment = create_appointment(
+        organization=organization,
+        customer=customer,
+        items=[{"service": service, "professional": professional, "order": 0}],
+        desired_start=start_at,
+        membership=organization.memberships.first(),
+    )
 
     assert appointment.pk
+    event = NotificationEvent.objects.get(
+        appointment=appointment, kind=NotificationEvent.Kind.CONFIRMATION
+    )
+    assert event.state == NotificationEvent.State.PENDING
+    assert dispatch_notification_outbox.run() == 1
+    event.refresh_from_db()
+    assert event.state == NotificationEvent.State.SENT
     assert len(mail.outbox) == 1
     assert mail.outbox[0].to == [customer.email]
     assert organization.name in mail.outbox[0].subject
     assert "Corte" in mail.outbox[0].body
     assert "Bia" in mail.outbox[0].body
+    assert dispatch_notification_outbox.run() == 0
+    assert len(mail.outbox) == 1
+
+
+@pytest.mark.django_db
+def test_outbox_reagenda_evento_apos_falha_temporaria_de_smtp(organization):
+    _, service, professional, customer, start_at = make_schedule(organization)
+    appointment = create_appointment(
+        organization=organization,
+        customer=customer,
+        items=[{"service": service, "professional": professional, "order": 0}],
+        desired_start=start_at,
+        membership=organization.memberships.first(),
+    )
+    event = NotificationEvent.objects.get(
+        appointment=appointment, kind=NotificationEvent.Kind.CONFIRMATION
+    )
+
+    with patch("notifications.tasks.send_mail", side_effect=OSError("SMTP indisponível")):
+        assert dispatch_notification_outbox.run() == 0
+
+    event.refresh_from_db()
+    assert event.state == NotificationEvent.State.PENDING
+    assert event.attempts == 1
+    assert event.last_error == "OSError"
+    assert event.available_at > timezone.now()
 
 
 @pytest.mark.django_db
@@ -142,7 +173,8 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
     sent_appointment.save(update_fields=["reminder_sent_at"])
     mail.outbox.clear()
 
-    with django_assert_num_queries(3):
+    # Query principal + prefetch de itens + leitura com lock/update de idempotência.
+    with django_assert_num_queries(5):
         assert send_appointment_reminders.run() == 2
 
     appointment.refresh_from_db()
@@ -154,9 +186,7 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
 
 
 @pytest.mark.django_db
-def test_cancelamento_envia_email_e_avisa_entradas_compativeis(
-    organization, django_capture_on_commit_callbacks
-):
+def test_cancelamento_persiste_eventos_e_avisa_entradas_compativeis(organization):
     desired_date, service, professional, customer, start_at = make_schedule(organization)
     appointment = create_raw_appointment(organization, service, professional, customer, start_at)
     other_service = ServiceFactory(organization=organization)
@@ -183,8 +213,9 @@ def test_cancelamento_envia_email_e_avisa_entradas_compativeis(
     )
     mail.outbox.clear()
 
-    with django_capture_on_commit_callbacks(execute=True):
-        change_appointment_status(appointment, Appointment.Status.CANCELED)
+    change_appointment_status(appointment, Appointment.Status.CANCELED)
+    assert NotificationEvent.objects.filter(appointment=appointment).count() == 2
+    assert dispatch_notification_outbox.run() == 2
 
     compatible.refresh_from_db()
     wrong_service.refresh_from_db()
@@ -272,3 +303,33 @@ def test_lista_publica_cria_cliente_e_escopa_servico_ao_tenant(
     )
     assert foreign_response.status_code == 400
     assert WaitlistEntry.objects.filter(organization=other_organization).count() == 0
+
+
+@pytest.mark.django_db
+def test_lista_publica_nao_altera_identidade_de_cliente_existente(api_client, organization):
+    desired_date, service, professional, _, _ = make_schedule(organization)
+    customer = CustomerFactory(
+        organization=organization,
+        name="Cliente conhecido",
+        phone="11988880000",
+        email="cliente-conhecido@example.com",
+    )
+    response = api_client.post(
+        reverse("public-waitlist"),
+        {
+            "name": "Pessoa tentando se passar pelo cliente",
+            "phone": customer.phone,
+            "email": "atacante@example.com",
+            "consent": True,
+            "service": service.pk,
+            "professional": professional.pk,
+            "desired_date": desired_date.isoformat(),
+        },
+        format="json",
+        HTTP_X_TENANT_SLUG=organization.slug,
+    )
+    customer.refresh_from_db()
+    assert response.status_code == 400
+    assert customer.name == "Cliente conhecido"
+    assert customer.phone == "11988880000"
+    assert customer.email == "cliente-conhecido@example.com"

@@ -19,6 +19,7 @@ from scheduling.serializers import (
     AppointmentSerializer,
     AppointmentStatusSerializer,
     AvailabilityQuerySerializer,
+    AvailabilityResponseSerializer,
 )
 
 
@@ -26,6 +27,7 @@ from scheduling.serializers import (
 class AvailabilityView(APIView):
     permission_classes = [MembershipRequired]
 
+    @extend_schema(responses=AvailabilityResponseSerializer)
     def get(self, request):
         query = AvailabilityQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)

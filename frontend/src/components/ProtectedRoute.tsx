@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useAuth, type Role } from "../lib/auth";
+import { useAuth, type Role } from "../lib/auth-context";
 
 export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: Role[] }) {
   const { user, loading } = useAuth();

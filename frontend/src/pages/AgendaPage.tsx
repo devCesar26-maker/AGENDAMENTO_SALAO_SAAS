@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, errorMessage } from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useAuth } from "../lib/auth-context";
 
 type Row<T> = T[] | { results: T[] };
 type Service = { id: number; name: string };
@@ -31,6 +31,8 @@ export function AgendaPage() {
   const [active, setActive] = useState<Appointment | null>(null);
   const [formError, setFormError] = useState("");
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues, unknown, ParsedFormValues>({ resolver: zodResolver(schema) });
+  // RHF's watch API is read locally here and its unstable methods are not memoized or shared.
+  // oxlint-disable-next-line react/incompatible-library
   const serviceId = watch("service");
   const professionalId = watch("professional");
   const appointmentQuery = useQuery({ queryKey: ["appointments", selectedDate], queryFn: async () => asRows((await api.get<Row<Appointment>>("/appointments/", { params: { date: selectedDate } })).data) });

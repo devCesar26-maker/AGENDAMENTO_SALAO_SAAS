@@ -4,10 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AgendaPage } from "../pages/AgendaPage";
 import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useAuth } from "../lib/auth-context";
 
 vi.mock("../lib/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() }, errorMessage: (e: Error) => e.message }));
-vi.mock("../lib/auth", () => ({ useAuth: vi.fn() }));
+vi.mock("../lib/auth-context", () => ({ useAuth: vi.fn() }));
 vi.mock("@fullcalendar/react", () => ({ default: ({ events, select }: { events: {title:string}[]; select: (a: {start:Date})=>void }) => <div><button onClick={() => select({start:new Date("2030-01-02T10:00:00")})}>Slot vago</button>{events.map(e => <span key={e.title}>{e.title}</span>)}</div> }));
 
 const availableStart = "2030-01-02T10:00:00-03:00";

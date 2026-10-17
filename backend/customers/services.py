@@ -1,9 +1,36 @@
 """Regras de negócio de clientes (views ficam finas)."""
 
-from django.db import transaction
+import hashlib
+
+from django.db import connection, transaction
 from django.utils import timezone
 
 from customers.models import Customer
+
+
+def lock_customer_identity(organization, *, phone: str, email: str = "") -> None:
+    """Serializa gravações públicas da mesma identidade sem travar o tenant todo."""
+    identities = [f"phone:{phone}"]
+    if email:
+        identities.append(f"email:{email.strip().lower()}")
+    if connection.vendor == "postgresql":
+        lock_ids = sorted(
+            int.from_bytes(
+                hashlib.blake2b(f"{organization.pk}:{identity}".encode(), digest_size=8).digest(),
+                byteorder="big",
+                signed=True,
+            )
+            for identity in identities
+        )
+        with connection.cursor() as cursor:
+            for lock_id in lock_ids:
+                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+        return
+
+    # Fallback para bancos sem advisory lock; produção é PostgreSQL.
+    from organizations.models import Organization
+
+    Organization.objects.select_for_update().get(pk=organization.pk)
 
 
 @transaction.atomic

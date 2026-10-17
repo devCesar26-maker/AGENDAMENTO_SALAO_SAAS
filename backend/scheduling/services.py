@@ -309,13 +309,14 @@ def create_appointment(
             price=snapshot["price"],
             commission_percentage=snapshot["commission_percentage"],
         )
-    from notifications.services import mark_waitlist_entries_converted
-    from notifications.tasks import send_appointment_confirmation
+    from notifications.models import NotificationEvent
+    from notifications.services import (
+        mark_waitlist_entries_converted,
+        queue_appointment_notification,
+    )
 
     mark_waitlist_entries_converted(appointment)
-    transaction.on_commit(
-        lambda appointment_id=appointment.pk: send_appointment_confirmation.delay(appointment_id)
-    )
+    queue_appointment_notification(appointment, NotificationEvent.Kind.CONFIRMATION)
     return appointment
 
 
@@ -402,14 +403,9 @@ def change_appointment_status(appointment, status_value):
     appointment.status = status_value
     appointment.save(update_fields=["status", "updated_at"])
     if status_value == Appointment.Status.CANCELED and previous_status != status_value:
-        from notifications.tasks import (
-            notify_waitlist_for_canceled_appointment,
-            send_appointment_cancellation,
-        )
+        from notifications.models import NotificationEvent
+        from notifications.services import queue_appointment_notification
 
-        appointment_id = appointment.pk
-        transaction.on_commit(lambda: send_appointment_cancellation.delay(appointment_id))
-        transaction.on_commit(
-            lambda: notify_waitlist_for_canceled_appointment.delay(appointment_id)
-        )
+        queue_appointment_notification(appointment, NotificationEvent.Kind.CANCELLATION)
+        queue_appointment_notification(appointment, NotificationEvent.Kind.WAITLIST_OPENING)
     return appointment

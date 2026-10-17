@@ -93,6 +93,56 @@ def test_reserva_publica_grava_consentimento_e_forca_origem(api_client, organiza
 
 
 @pytest.mark.django_db
+def test_reserva_publica_nao_altera_identidade_de_cliente_existente(api_client, organization):
+    _, service, professional = make_public_schedule(organization)
+    customer = Customer.objects.create(
+        organization=organization,
+        name="Cliente conhecido",
+        phone="11988880000",
+        email="cliente-conhecido@example.com",
+    )
+    start_at = api_client.get(
+        reverse("public-availability"),
+        {"services": service.pk, "professional": professional.pk, "date": BOOKING_DAY},
+        **public_headers(organization),
+    ).json()["slots"][0]["start_at"]
+    response = api_client.post(
+        reverse("public-appointment-create"),
+        {
+            "name": "Pessoa tentando se passar pelo cliente",
+            "phone": customer.phone,
+            "email": "atacante@example.com",
+            "consent": True,
+            "start_at": start_at,
+            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+        },
+        format="json",
+        **public_headers(organization),
+    )
+    customer.refresh_from_db()
+    assert response.status_code == 400
+    assert customer.name == "Cliente conhecido"
+    assert customer.phone == "11988880000"
+    assert customer.email == "cliente-conhecido@example.com"
+
+
+@pytest.mark.django_db
+def test_availability_rejeita_lista_de_servicos_excessiva(api_client, organization):
+    _, _, professional = make_public_schedule(organization)
+    response = api_client.get(
+        reverse("public-availability"),
+        {
+            "services": ",".join(str(index) for index in range(1, 7)),
+            "professional": professional.pk,
+            "date": BOOKING_DAY,
+        },
+        **public_headers(organization),
+    )
+    assert response.status_code == 400
+    assert "no máximo 5" in response.json()["error"]["fields"]["services"][0]
+
+
+@pytest.mark.django_db
 @override_settings(PUBLIC_BASE_DOMAIN="salons.example.test", ALLOWED_HOSTS=[".example.test"])
 def test_host_de_tenant_a_nao_lista_ou_reserva_dados_de_b(api_client, organization):
     category_a, _, professional_a = make_public_schedule(organization)

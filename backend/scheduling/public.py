@@ -6,6 +6,7 @@ from typing import ClassVar
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny
@@ -14,14 +15,44 @@ from rest_framework.views import APIView
 
 from catalog.models import Professional, ProfessionalService, Service, ServiceCategory
 from core.api.throttling import PublicBookingRateThrottle
+from customers import services as customer_services
 from customers.models import Customer
-from organizations.models import Organization
 from scheduling import services
 from scheduling.models import Appointment
 from scheduling.serializers import (
     AvailabilityQuerySerializer,
+    AvailabilityResponseSerializer,
     PublicAppointmentCreateSerializer,
 )
+
+
+class PublicCategoryResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    order = serializers.IntegerField()
+
+
+class PublicServiceResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    category = serializers.IntegerField()
+    category_name = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    duration_minutes = serializers.IntegerField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class PublicCatalogResponseSerializer(serializers.Serializer):
+    categories = PublicCategoryResponseSerializer(many=True)
+    services = PublicServiceResponseSerializer(many=True)
+
+
+class PublicProfessionalResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    photo = serializers.CharField(allow_blank=True, allow_null=True)
+    services = serializers.ListField(child=serializers.IntegerField())
+
 
 PUBLIC_APPOINTMENT_LIMIT_NEW_PER_24H = 3
 PUBLIC_APPOINTMENT_LIMIT_RETURNING_PER_24H = 4
@@ -41,6 +72,7 @@ class PublicAPIView(APIView):
 
 
 class PublicCatalogView(PublicAPIView):
+    @extend_schema(responses=PublicCatalogResponseSerializer)
     def get(self, request):
         organization = self.organization
         services_qs = Service.objects.filter(
@@ -76,6 +108,7 @@ class PublicCatalogView(PublicAPIView):
 
 
 class PublicProfessionalsView(PublicAPIView):
+    @extend_schema(responses=PublicProfessionalResponseSerializer(many=True))
     def get(self, request):
         organization = self.organization
         links = ProfessionalService.objects.filter(
@@ -103,6 +136,7 @@ class PublicProfessionalsView(PublicAPIView):
 
 
 class PublicAvailabilityView(PublicAPIView):
+    @extend_schema(responses=AvailabilityResponseSerializer)
     def get(self, request):
         query = AvailabilityQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
@@ -178,7 +212,9 @@ class PublicAppointmentCreateView(PublicAPIView):
 
         # Serializa a verificação do limite e a criação/reuso de cliente no tenant.
         with transaction.atomic():
-            organization = Organization.objects.select_for_update().get(pk=organization.pk)
+            customer_services.lock_customer_identity(
+                organization, phone=data["phone"], email=data.get("email", "")
+            )
             identity = Q(phone=data["phone"])
             if data.get("email"):
                 identity |= Q(email__iexact=data["email"])
@@ -194,6 +230,15 @@ class PublicAppointmentCreateView(PublicAPIView):
                 )
             if matches:
                 customer = matches[0]
+                if customer.phone != data["phone"] or (
+                    data.get("email")
+                    and customer.email
+                    and customer.email.casefold() != data["email"].casefold()
+                ):
+                    raise serializers.ValidationError(
+                        "Os contatos informados não correspondem ao cadastro existente. "
+                        "Fale com o salão para atualizar seus dados."
+                    )
             else:
                 customer, _ = Customer.objects.get_or_create(
                     organization=organization,
@@ -224,21 +269,9 @@ class PublicAppointmentCreateView(PublicAPIView):
                     )
                 )
 
-            customer.name = data["name"]
-            customer.phone = data["phone"]
-            customer.email = data.get("email", "")
             customer.lgpd_consent = True
             customer.lgpd_consent_at = now
-            customer.save(
-                update_fields=[
-                    "name",
-                    "phone",
-                    "email",
-                    "lgpd_consent",
-                    "lgpd_consent_at",
-                    "updated_at",
-                ]
-            )
+            customer.save(update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"])
             appointment = services.create_appointment(
                 organization=organization,
                 customer=customer,

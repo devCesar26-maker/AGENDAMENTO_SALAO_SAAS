@@ -1,6 +1,7 @@
 """Lista de espera e estado de entrega de notificações."""
 
 from django.db import models
+from django.utils import timezone
 
 from core.models import TenantModel
 
@@ -30,3 +31,36 @@ class WaitlistEntry(TenantModel):
 
     def __str__(self):
         return f"{self.customer} — {self.service} em {self.desired_date}"
+
+
+class NotificationEvent(TenantModel):
+    """Outbox transacional para que indisponibilidade do broker não perca e-mails."""
+
+    class Kind(models.TextChoices):
+        CONFIRMATION = "CONFIRMATION", "Confirmação de agendamento"
+        CANCELLATION = "CANCELLATION", "Cancelamento de agendamento"
+        WAITLIST_OPENING = "WAITLIST_OPENING", "Vaga aberta da lista de espera"
+
+    class State(models.TextChoices):
+        PENDING = "PENDING", "Pendente"
+        PROCESSING = "PROCESSING", "Em processamento"
+        SENT = "SENT", "Enviado"
+
+    appointment = models.ForeignKey(
+        "scheduling.Appointment", on_delete=models.CASCADE, related_name="notification_events"
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices)
+    state = models.CharField(max_length=12, choices=State.choices, default=State.PENDING)
+    available_at = models.DateTimeField(default=timezone.now, db_index=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("appointment", "kind"), name="uniq_notification_event_appointment_kind"
+            )
+        ]
+        indexes = [models.Index(fields=("state", "available_at"), name="notification_outbox_idx")]
