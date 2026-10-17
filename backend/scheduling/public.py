@@ -23,7 +23,8 @@ from scheduling.serializers import (
     PublicAppointmentCreateSerializer,
 )
 
-PUBLIC_APPOINTMENT_LIMIT_PER_24H = 3
+PUBLIC_APPOINTMENT_LIMIT_NEW_PER_24H = 3
+PUBLIC_APPOINTMENT_LIMIT_RETURNING_PER_24H = 4
 
 
 class PublicAPIView(APIView):
@@ -205,7 +206,17 @@ class PublicAppointmentCreateView(PublicAPIView):
                 customer=customer,
                 created_at__gte=now - timedelta(hours=24),
             ).count()
-            if recent_count >= PUBLIC_APPOINTMENT_LIMIT_PER_24H:
+            has_completed_history = Appointment.objects.filter(
+                organization=organization,
+                customer=customer,
+                status=Appointment.Status.COMPLETED,
+            ).exists()
+            limit = (
+                PUBLIC_APPOINTMENT_LIMIT_RETURNING_PER_24H
+                if has_completed_history
+                else PUBLIC_APPOINTMENT_LIMIT_NEW_PER_24H
+            )
+            if recent_count >= limit:
                 raise Throttled(
                     detail=(
                         "Limite de reservas atingido para este contato nas últimas 24 horas. "

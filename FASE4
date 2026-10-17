@@ -13,7 +13,7 @@ Feito
 - Corrigida a lacuna da API pública no backend: catálogo, profissionais, disponibilidade e criação de reserva anônima, escopados pelo tenant.
 - O middleware agora identifica tenant pelo subdomínio e aceita `X-Tenant-Slug` para a navegação local iniciada em `/b/<slug>/`.
 - A reserva pública valida/sanitiza nome, telefone e e-mail, cria ou reaproveita o cliente dentro do tenant, grava consentimento com timestamp e sempre força `origin=PUBLIC_PAGE` no servidor.
-- Adicionado throttle sempre por IP (10 requisições/hora) e limite de três agendamentos por cliente em 24 horas.
+- Adicionado throttle sempre por IP (10 requisições/hora); o limite por contato é dinâmico: três agendamentos em 24 horas para clientes sem histórico concluído e quatro para clientes com ao menos um atendimento `COMPLETED` no tenant.
 - Adicionado `PATCH /api/v1/appointments/{id}/reschedule/`, com locks, revalidação do motor de disponibilidade e HTTP 409 se houver conflito.
 - O frontend público foi ligado aos endpoints públicos e o drag and drop da agenda agora chama a rota de remarcação; em erro, reverte a posição visual.
 - Testes cobrem API pública, consentimento, origem forçada, isolamento por host/tenant, fallback local, rate limit por IP e contato e reagendamento.
@@ -30,6 +30,7 @@ Falhas e limites encontrados
 - A execução inicial não alcançava o PostgreSQL configurado; a suíte final rodou no serviço `db` do Compose pela porta local 5433.
 - Os primeiros testes apontaram problemas no teste de horários, no retorno da remarcação e na resolução local do slug; foram corrigidos e passaram na execução final.
 - A contagem do limite por cliente inclui reservas canceladas dentro da janela de 24 horas; isso reduz abuso via repetidos cancelamentos.
+- A classificação como cliente recorrente considera qualquer agendamento `COMPLETED` no histórico do mesmo tenant. A contagem da janela continua incluindo todos os status, inclusive cancelados.
 
 Melhorias recomendadas
 - Adicionar persistência/observabilidade de throttle distribuído se múltiplas instâncias da API passarem a servir tráfego público.

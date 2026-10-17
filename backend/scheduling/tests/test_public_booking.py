@@ -1,12 +1,13 @@
 """Cobertura da API pública de reserva e do isolamento por tenant."""
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from catalog.factories import (
     ProfessionalFactory,
@@ -162,6 +163,53 @@ def test_cliente_publico_tem_limite_de_tres_reservas_em_24_horas(api_client, org
         if expected == 429:
             assert "Limite de reservas" in response.json()["error"]["detail"]
     assert Appointment.objects.filter(organization=organization).count() == 3
+
+
+@pytest.mark.django_db
+def test_cliente_com_historico_concluido_pode_agendar_ate_quatro_vezes_em_24_horas(
+    api_client, organization
+):
+    _, service, professional = make_public_schedule(organization)
+    slots = api_client.get(
+        reverse("public-availability"),
+        {"services": service.pk, "professional": professional.pk, "date": BOOKING_DAY},
+        **public_headers(organization),
+    ).json()["slots"]
+    customer = Customer.objects.create(
+        organization=organization,
+        name="Cliente recorrente",
+        phone="11966665555",
+        email="recorrente@example.com",
+    )
+    completed = Appointment.objects.create(
+        organization=organization,
+        customer=customer,
+        status=Appointment.Status.COMPLETED,
+    )
+    Appointment.objects.filter(pk=completed.pk).update(
+        created_at=timezone.now() - timedelta(days=2)
+    )
+    payload = {
+        "name": customer.name,
+        "phone": customer.phone,
+        "email": customer.email,
+        "consent": True,
+        "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+    }
+
+    for index, slot in enumerate(slots[::2][:5]):
+        response = api_client.post(
+            reverse("public-appointment-create"),
+            {**payload, "start_at": slot["start_at"]},
+            format="json",
+            **public_headers(organization),
+        )
+        expected = 429 if index == 4 else 201
+        assert response.status_code == expected, response.json()
+        if expected == 429:
+            assert "Limite de reservas" in response.json()["error"]["detail"]
+
+    assert Appointment.objects.filter(organization=organization, customer=customer).count() == 5
 
 
 @pytest.mark.django_db
