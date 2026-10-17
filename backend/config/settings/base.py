@@ -179,7 +179,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "600/min",
         "auth": "10/min",
-        "public_booking": "20/h",
+        "public_booking": "10/h",
     },
     "EXCEPTION_HANDLER": "core.api.exceptions.exception_handler",
 }

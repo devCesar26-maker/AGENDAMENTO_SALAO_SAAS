@@ -86,6 +86,7 @@ def calcular_slots_disponiveis(
     date,
     *,
     slot_step_minutes=SLOT_STEP_MINUTES,
+    exclude_appointment_id=None,
 ):
     """Retorna inícios disponíveis e a atribuição de profissionais para cada item.
 
@@ -109,7 +110,12 @@ def calcular_slots_disponiveis(
     window_start = min(start for start, _ in organization_intervals)
     window_end = max(end for _, end in organization_intervals)
     links, hours, time_offs, busy_items = load_availability_data(
-        organization, services, date, window_start, window_end
+        organization,
+        services,
+        date,
+        window_start,
+        window_end,
+        exclude_appointment_id=exclude_appointment_id,
     )
     links_by_service = {}
     for link in links:
@@ -239,7 +245,9 @@ def _validate_booking_data(organization, customer, items, membership):
 
 
 @transaction.atomic
-def create_appointment(*, organization, customer, items, desired_start, membership, notes=""):
+def create_appointment(
+    *, organization, customer, items, desired_start, membership, notes="", origin=None
+):
     """Bloqueia profissionais, revalida o slot e cria snapshots atomicamente."""
     _validate_booking_data(organization, customer, items, membership)
     if timezone.is_naive(desired_start):
@@ -286,7 +294,7 @@ def create_appointment(*, organization, customer, items, desired_start, membersh
         customer=customer,
         created_by=membership,
         notes=sanitize_free_text(notes),
-        origin=Appointment.Origin.DASHBOARD,
+        origin=origin or Appointment.Origin.DASHBOARD,
     )
     for order, snapshot in enumerate(selected["items"]):
         AppointmentItem.objects.create(
@@ -302,6 +310,80 @@ def create_appointment(*, organization, customer, items, desired_start, membersh
             commission_percentage=snapshot["commission_percentage"],
         )
     return appointment
+
+
+@transaction.atomic
+def reschedule_appointment(*, organization, appointment, desired_start):
+    """Trava o agendamento/profissionais e reaplica a disponibilidade no novo início."""
+    if timezone.is_naive(desired_start):
+        raise ValidationError({"start_at": "Informe um horário com fuso horário."})
+    desired_start = desired_start.astimezone(UTC)
+    current_appointment = Appointment.objects.get(organization=organization, pk=appointment.pk)
+    current_professional_ids = list(
+        current_appointment.items.order_by("professional_id")
+        .values_list("professional_id", flat=True)
+        .distinct()
+    )
+    list(
+        Professional.objects.select_for_update()
+        .filter(organization=organization, pk__in=current_professional_ids)
+        .order_by("pk")
+    )
+    locked_appointment = Appointment.objects.select_for_update().get(
+        organization=organization, pk=appointment.pk
+    )
+    if locked_appointment.status not in {
+        Appointment.Status.SCHEDULED,
+        Appointment.Status.CONFIRMED,
+    }:
+        raise ValidationError("Somente agendamentos ativos podem ser remarcados.")
+    items = list(
+        locked_appointment.items.select_for_update()
+        .select_related("service", "professional")
+        .order_by("order")
+    )
+    if not items:
+        raise ValidationError("Agendamento sem serviços não pode ser remarcado.")
+    professional_ids = sorted({item.professional_id for item in items})
+    end_hint = desired_start + timedelta(days=2)
+    list(
+        AppointmentItem.objects.select_for_update()
+        .filter(
+            organization=organization,
+            professional_id__in=professional_ids,
+            start_at__lt=end_hint,
+            end_at__gte=desired_start - timedelta(days=1),
+            appointment__status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
+        )
+        .exclude(appointment_id=locked_appointment.pk)
+        .order_by("pk")
+    )
+    proposed = calcular_slots_disponiveis(
+        organization,
+        [item.service for item in items],
+        [item.professional for item in items],
+        desired_start.astimezone(ZoneInfo(organization.timezone)).date(),
+        exclude_appointment_id=locked_appointment.pk,
+    )
+    selected = next((slot for slot in proposed if slot["start_at"] == desired_start), None)
+    if selected is None:
+        raise SlotUnavailable()
+    for existing, snapshot in zip(items, selected["items"], strict=True):
+        existing.start_at = snapshot["start_at"]
+        existing.end_at = snapshot["end_at"]
+        existing.buffer_minutes = snapshot["buffer_minutes"]
+        existing.price = snapshot["price"]
+        existing.commission_percentage = snapshot["commission_percentage"]
+        existing.save(
+            update_fields=[
+                "start_at",
+                "end_at",
+                "buffer_minutes",
+                "price",
+                "commission_percentage",
+            ]
+        )
+    return locked_appointment
 
 
 @transaction.atomic

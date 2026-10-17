@@ -9,8 +9,8 @@ import { api } from "../lib/api";
 vi.mock("../lib/api", () => ({ api: { get: vi.fn(), post: vi.fn() }, errorMessage: (e: Error) => e.message }));
 describe("PublicBookingPage", () => {
   beforeEach(() => {
-    vi.mocked(api.get).mockImplementation(async (url) => ({ data: url === "/services/" ? [{id:1,name:"Corte",duration_minutes:30,price:"50.00"}] : url === "/professionals/" ? [{id:3,name:"Bia",service_links:[{service:1}]}] : {slots:[{start_at:"2030-01-02T10:00:00-03:00",items:[{service:1,professional:3,start_at:"2030-01-02T10:00:00-03:00",end_at:"2030-01-02T10:30:00-03:00"}]}]} } as never));
-    vi.mocked(api.post).mockImplementation(async url => ({ data: url === "/customers/" ? {id:8} : {} } as never));
+    vi.mocked(api.get).mockImplementation(async (url) => ({ data: url === "/public/catalog/" ? {services:[{id:1,name:"Corte",duration_minutes:30,price:"50.00"}]} : url === "/public/professionals/" ? [{id:3,name:"Bia",services:[1]}] : {slots:[{start_at:"2030-01-02T10:00:00-03:00",items:[{service:1,professional:3,start_at:"2030-01-02T10:00:00-03:00",end_at:"2030-01-02T10:30:00-03:00"}]}]} } as never));
+    vi.mocked(api.post).mockResolvedValue({ data: {id:8} } as never);
   });
   it("completes service, slot, customer, consent and reservation flow", async () => {
     const user = userEvent.setup();
@@ -22,7 +22,8 @@ describe("PublicBookingPage", () => {
     await user.type(screen.getByLabelText("Telefone"), "11999999999");
     await user.click(screen.getByRole("checkbox", { name: /Autorizo o uso/ }));
     await user.click(screen.getByRole("button", { name: "Confirmar reserva" }));
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/appointments/", expect.objectContaining({ customer:8, origin:"PUBLIC_PAGE" })));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/public/appointments/", expect.objectContaining({ name:"Ana Cliente", phone:"11999999999", consent:true }), expect.objectContaining({ headers: { "X-Tenant-Slug": "salao" } })));
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("origin");
     expect(await screen.findByText("Reserva solicitada")).toBeInTheDocument();
   });
 });

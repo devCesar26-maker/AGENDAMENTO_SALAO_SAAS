@@ -8,7 +8,7 @@ import { useTenantSlug } from "../lib/useTenantSlug";
 
 type Row<T> = T[] | { results: T[] };
 type Service = { id: number; name: string; duration_minutes: number; price: string };
-type Professional = { id: number; name: string; service_links: { service: number }[] };
+type Professional = { id: number; name: string; photo?: string; services: number[] };
 type Slot = { start_at: string; items: { service: number; professional: number; start_at: string; end_at: string }[] };
 const rows = <T,>(data: Row<T>) => Array.isArray(data) ? data : data.results;
 const schema = z.object({ name: z.string().trim().min(2, "Informe seu nome"), phone: z.string().trim().min(8, "Informe um telefone válido"), email: z.union([z.literal(""), z.string().email("E-mail inválido")]), consent: z.literal(true, { error: "É necessário aceitar o uso dos dados para confirmar" }) });
@@ -24,19 +24,18 @@ export function PublicBookingPage() {
   const [message, setMessage] = useState("");
   const [completed, setCompleted] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CustomerInput>({ resolver: zodResolver(schema) });
-  const serviceQuery = useQuery({ queryKey: ["public-services", slug], enabled: !!slug, queryFn: async () => rows((await api.get<Row<Service>>("/services/")).data) });
-  const professionalsQuery = useQuery({ queryKey: ["public-professionals", slug], enabled: !!slug, queryFn: async () => rows((await api.get<Row<Professional>>("/professionals/")).data) });
-  const chosenProfessionals = professionalsQuery.data?.filter(p => serviceIds.every(id => p.service_links?.some(link => link.service === id))) ?? [];
-  const slotsQuery = useQuery({ queryKey: ["public-availability", serviceIds.join(","), professional, date], enabled: serviceIds.length > 0 && !!date, queryFn: async () => (await api.get<{ slots: Slot[] }>("/availability/", { params: { services: serviceIds.join(","), professional, date } })).data.slots });
+  const tenantConfig = { headers: { "X-Tenant-Slug": slug ?? "" } };
+  const serviceQuery = useQuery({ queryKey: ["public-services", slug], enabled: !!slug, queryFn: async () => (await api.get<{services: Service[]}>("/public/catalog/", tenantConfig)).data.services });
+  const professionalsQuery = useQuery({ queryKey: ["public-professionals", slug], enabled: !!slug, queryFn: async () => rows((await api.get<Row<Professional>>("/public/professionals/", tenantConfig)).data) });
+  const chosenProfessionals = professionalsQuery.data?.filter(p => serviceIds.every(id => p.services?.includes(id))) ?? [];
+  const slotsQuery = useQuery({ queryKey: ["public-availability", slug, serviceIds.join(","), professional, date], enabled: serviceIds.length > 0 && !!date, queryFn: async () => (await api.get<{ slots: Slot[] }>("/public/availability/", { ...tenantConfig, params: { services: serviceIds.join(","), professional, date } })).data.slots });
   const onSubmit = async (data: CustomerInput) => {
     setMessage("");
     try {
       if (!slot) throw new Error("Escolha um horário disponível.");
-      const customerResponse = await api.post<{id:number}>("/customers/", { name: data.name, phone: data.phone, email: data.email });
-      await api.post(`/customers/${customerResponse.data.id}/lgpd-consent/`, { consented: true });
       const matchingSlot = slotsQuery.data?.find(candidate => candidate.start_at === slot);
       if (!matchingSlot) throw new Error("Esse horário acabou de ficar indisponível. Escolha outro.");
-      await api.post("/appointments/", { customer: customerResponse.data.id, start_at: slot, origin: "PUBLIC_PAGE", items: matchingSlot.items.map((item, order) => ({ service: item.service, professional: item.professional, order })) });
+      await api.post("/public/appointments/", { name: data.name, phone: data.phone, email: data.email, consent: data.consent, start_at: slot, items: matchingSlot.items.map((item, order) => ({ service: item.service, professional: item.professional, order })) }, tenantConfig);
       setCompleted(true);
     } catch (error) { setMessage(errorMessage(error)); }
   };

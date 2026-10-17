@@ -1,5 +1,7 @@
 """Serializers explícitos para disponibilidade e agendamentos."""
 
+import re
+
 from rest_framework import serializers
 
 from catalog.models import Professional, ProfessionalService, Service
@@ -95,6 +97,56 @@ class AppointmentCreateSerializer(serializers.Serializer):
         return sanitize_free_text(value)
 
 
+class PublicAppointmentCreateSerializer(serializers.Serializer):
+    """Entrada pública: identificação do cliente, consentimento e serviços."""
+
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    phone = serializers.CharField(max_length=20, trim_whitespace=True)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    consent = serializers.BooleanField()
+    items = AppointmentItemInputSerializer(many=True, allow_empty=False)
+    start_at = serializers.DateTimeField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        organization = self.context.get("organization")
+        if organization is not None:
+            self.fields["items"].child.fields["service"].queryset = Service.objects.filter(
+                organization=organization
+            )
+            self.fields["items"].child.fields["professional"].queryset = (
+                Professional.objects.filter(organization=organization)
+            )
+
+    def validate_name(self, value):
+        value = sanitize_free_text(value)
+        if len(value) < 2:
+            raise serializers.ValidationError("Informe um nome válido.")
+        return value
+
+    def validate_phone(self, value):
+        if not re.fullmatch(r"\+?[0-9().\-\s]{8,20}", value):
+            raise serializers.ValidationError("Informe um telefone válido.")
+        has_plus = value.lstrip().startswith("+")
+        digits = "".join(character for character in value if character.isdigit())
+        if not 8 <= len(digits) <= 15:
+            raise serializers.ValidationError("Informe um telefone com 8 a 15 dígitos.")
+        return f"+{digits}" if has_plus else digits
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def validate_consent(self, value):
+        if not value:
+            raise serializers.ValidationError("O consentimento é necessário para reservar.")
+        return value
+
+    def validate_items(self, items):
+        if len({item["order"] for item in items}) != len(items):
+            raise serializers.ValidationError("A ordem dos serviços não pode se repetir.")
+        return sorted(items, key=lambda item: item["order"])
+
+
 class AppointmentItemSerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(source="service.name", read_only=True)
     professional_name = serializers.CharField(source="professional.name", read_only=True)
@@ -139,3 +191,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
 class AppointmentStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Appointment.Status.choices)
+
+
+class AppointmentRescheduleSerializer(serializers.Serializer):
+    start_at = serializers.DateTimeField()

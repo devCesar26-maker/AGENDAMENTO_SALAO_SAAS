@@ -15,6 +15,7 @@ from scheduling.models import Appointment
 from scheduling.permissions import AppointmentAccess, AppointmentCreateAccess
 from scheduling.serializers import (
     AppointmentCreateSerializer,
+    AppointmentRescheduleSerializer,
     AppointmentSerializer,
     AppointmentStatusSerializer,
     AvailabilityQuerySerializer,
@@ -187,6 +188,35 @@ class AppointmentStatusView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         appointment = services.change_appointment_status(
             appointment, serializer.validated_data["status"]
+        )
+        return Response(
+            AppointmentSerializer(
+                selectors.get_appointment(request.organization, appointment.pk)
+            ).data
+        )
+
+
+@extend_schema(tags=["scheduling"])
+class AppointmentRescheduleView(generics.GenericAPIView):
+    serializer_class = AppointmentRescheduleSerializer
+    permission_classes = [AppointmentAccess]
+    queryset = Appointment.objects.none()
+
+    def get_queryset(self):
+        organization, membership = resolve_membership(self.request)
+        queryset = Appointment.objects.filter(organization=organization)
+        if membership.role == Membership.Role.PROFESSIONAL:
+            queryset = queryset.filter(items__professional__user=self.request.user).distinct()
+        return queryset
+
+    def patch(self, request, *args, **kwargs):
+        appointment = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        appointment = services.reschedule_appointment(
+            organization=request.organization,
+            appointment=appointment,
+            desired_start=serializer.validated_data["start_at"],
         )
         return Response(
             AppointmentSerializer(

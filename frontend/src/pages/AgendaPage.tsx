@@ -44,10 +44,17 @@ export function AgendaPage() {
     return api.post("/appointments/", { customer: values.customer, start_at: values.slot, items: slot.items.map((item, order) => ({ service: item.service, professional: item.professional, order })) });
   }, onSuccess: () => { void qc.invalidateQueries({ queryKey: ["appointments"] }); setFormOpen(false); reset(); setFormError(""); }, onError: (error) => setFormError(errorMessage(error)) });
   const statusMutation = useMutation({ mutationFn: ({ id, status }: { id: number; status: string }) => api.patch(`/appointments/${id}/status/`, { status }), onSuccess: () => { void qc.invalidateQueries({ queryKey: ["appointments"] }); setActive(null); } });
+  const reschedule = useMutation({ mutationFn: ({ id, start_at }: { id: number; start_at: string }) => api.patch(`/appointments/${id}/reschedule/`, { start_at }), onSuccess: () => { setFormError(""); void qc.invalidateQueries({ queryKey: ["appointments"] }); } });
   const cancel = useMutation({ mutationFn: (id: number) => api.post(`/appointments/${id}/cancel/`), onSuccess: () => { void qc.invalidateQueries({ queryKey: ["appointments"] }); setActive(null); } });
   const events = useMemo(() => (appointmentQuery.data ?? []).filter((a) => a.items.length).map((a) => ({ id: String(a.id), title: `${a.customer_name} · ${a.items.map((i) => i.service_name).join(", ")}`, start: a.items[0].start_at, end: a.items[a.items.length - 1].end_at, extendedProps: { appointment: a } })), [appointmentQuery.data]);
   const openCreate = (arg?: { start: Date }) => { setSelectedDate(arg ? localDate(arg.start) : localDate(new Date())); setFormOpen(true); setFormError(""); };
-  const onDrop = (info: { revert: () => void }) => { info.revert(); setFormError("A API atual não oferece atualização de horário para agendamentos. A alteração visual foi revertida."); };
+  const onDrop = (info: { event: { id: string; start: Date | null }; revert: () => void }) => {
+    if (!info.event.start) { info.revert(); return; }
+    reschedule.mutate({ id: Number(info.event.id), start_at: info.event.start.toISOString() }, { onError: (error) => {
+      info.revert();
+      setFormError(errorMessage(error));
+    } });
+  };
   const onClick = (info: { event: { extendedProps: Record<string, unknown> } }) => setActive(info.event.extendedProps.appointment as Appointment);
   const dataError = appointmentQuery.isError || servicesQuery.isError || professionalsQuery.isError || customersQuery.isError;
   return <div className="min-h-screen bg-slate-50">

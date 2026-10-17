@@ -10,7 +10,9 @@ from catalog.models import ProfessionalService
 from scheduling.models import Appointment, AppointmentItem
 
 
-def load_availability_data(organization, services, date, window_start, window_end):
+def load_availability_data(
+    organization, services, date, window_start, window_end, *, exclude_appointment_id=None
+):
     """Carrega em lote vínculos, horários, folgas e ocupações para um cálculo."""
     from catalog.models import TimeOff, WorkingHours
 
@@ -37,15 +39,16 @@ def load_availability_data(organization, services, date, window_start, window_en
             end_date__gte=first_date,
         )
     )
-    busy_items = list(
-        AppointmentItem.objects.filter(
-            organization=organization,
-            professional_id__in=professional_ids,
-            start_at__lt=window_end,
-            end_at__gt=window_start - timedelta(days=2),
-            appointment__status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
-        ).select_related("service", "appointment")
-    )
+    busy_queryset = AppointmentItem.objects.filter(
+        organization=organization,
+        professional_id__in=professional_ids,
+        start_at__lt=window_end,
+        end_at__gt=window_start - timedelta(days=2),
+        appointment__status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
+    ).select_related("service", "appointment")
+    if exclude_appointment_id is not None:
+        busy_queryset = busy_queryset.exclude(appointment_id=exclude_appointment_id)
+    busy_items = list(busy_queryset)
     return links, hours, time_offs, busy_items
 
 
