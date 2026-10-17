@@ -9,7 +9,7 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
 export const api = axios.create({
-  baseURL: "/api/v1",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api/v1",
   withCredentials: true, // envia cookie de refresh em /auth/refresh e /auth/logout
 });
 
@@ -30,7 +30,8 @@ let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   try {
-    const { data } = await axios.post("/api/v1/auth/refresh/", {}, { withCredentials: true });
+    const baseURL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+    const { data } = await axios.post(`${baseURL}/auth/refresh/`, {}, { withCredentials: true });
     accessToken = data.access;
     return data.access;
   } catch {
@@ -75,6 +76,7 @@ function extractDetail(data: unknown): string | null {
 /** Extrai a mensagem padronizada {"error": {"detail": ...}} para exibir ao usuário. */
 export function errorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (error.response?.status === 429) return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
     const fromBody = extractDetail(error.response?.data);
     if (fromBody) return fromBody;
     if (error.response?.status === 401) return "Sessão expirada. Entre novamente.";

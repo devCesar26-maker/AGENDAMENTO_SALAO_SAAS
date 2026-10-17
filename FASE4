@@ -1,0 +1,32 @@
+FASE 4 — Agenda visual e reserva pública
+
+Feito
+- Corrigida a vulnerabilidade alta de source-map-js via npm audit fix; o audit final não reporta vulnerabilidades.
+- Reativado o job frontend do CI para executar em pushes e pull requests.
+- api.ts usa VITE_API_BASE_URL com fallback para /api/v1; criado frontend/.env.example.
+- Agenda com FullCalendar (semana/dia/mês), consulta de agendamentos, criação a partir dos slots livres, painel de detalhes, atualização de status e cancelamento.
+- Drag and drop é revertido explicitamente quando a API não permite a operação.
+- Reserva responsiva com seleção de serviços, profissional (incluindo qualquer disponível), data, horários, dados do cliente e consentimento LGPD visível.
+- Detecção de tenant por subdomínio na rota raiz e manutenção de /b/:slug como fallback.
+- Tratamento amigável de HTTP 429 e estados de carregamento, erro e ausência de horários.
+- Testes de criação da agenda, fluxo público simulado e detecção de slug.
+
+Validação
+- npm run lint: passou com avisos preexistentes de Fast Refresh em auth.tsx e de compatibilidade de React Hook Form.
+- npm run build: passou; Vite alerta que o bundle principal ultrapassa 500 kB.
+- npm run test:run: 4 arquivos e 7 testes passaram.
+- npm audit --audit-level=high: zero vulnerabilidades.
+
+Falhas e limites encontrados
+- O backend atual não implementa PATCH de agendamento (GET é o único método de /appointments/{id}/). Por isso o drag é revertido com explicação visível, em vez de enviar uma chamada que sempre falharia.
+- As APIs atuais de clientes, disponibilidade e criação de agendamento usam MembershipRequired. Portanto o fluxo de reserva sem login não pode concluir no backend disponível.
+- O serializer de criação de cliente marca lgpd_consent como read-only; o consentimento só pode ser registrado em rota própria autenticada.
+- O serializer de criação do agendamento não aceita origin, então PUBLIC_PAGE enviado pelo frontend não altera a origem persistida.
+- O backend não inclui página pública/consulta de catálogo anônima. A UI foi implementada contra os contratos esperados e coberta com mocks, mas requer endpoints públicos correspondentes para funcionar ponta a ponta.
+
+Melhorias recomendadas
+- Disponibilizar endpoints públicos escopados por tenant para catálogo, disponibilidade, cadastro/associação consentida de cliente e criação de reserva, com rate limit e validação server-side.
+- Adicionar endpoint PATCH transacional para remarcar horários e garantir conflito HTTP 409.
+- Expor criação pública com origem PUBLIC_PAGE e consentimento LGPD registrados pelo servidor.
+- Dividir o bundle com lazy loading, especialmente as páginas que importam FullCalendar.
+- Completar a seleção de vários serviços/profissionais no formulário interno e mapear explicitamente o perfil profissional ao usuário autenticado.

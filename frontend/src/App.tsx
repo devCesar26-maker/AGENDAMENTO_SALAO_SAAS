@@ -5,6 +5,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { AgendaPage } from "./pages/AgendaPage";
 import { PublicBookingPage } from "./pages/PublicBookingPage";
+import { tenantSlugForHostname } from "./lib/useTenantSlug";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +30,7 @@ export default function App() {
             />
             <Route path="/app" element={<Navigate to="/app/agenda" replace />} />
             <Route path="/b/:slug" element={<PublicBookingPage />} />
-            <Route path="/" element={<Navigate to="/app/agenda" replace />} />
+            <Route path="/" element={tenantSlugForHostname(window.location.hostname) ? <PublicBookingPage /> : <Navigate to="/app/agenda" replace />} />
             <Route path="*" element={<Navigate to="/app/agenda" replace />} />
           </Routes>
         </BrowserRouter>
