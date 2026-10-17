@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from catalog.models import Professional, ProfessionalService, Service, ServiceCategory
 from core.api.throttling import PublicBookingRateThrottle
+from core.idempotency import IdempotencyConflict, execute_idempotently
 from customers import services as customer_services
 from customers.models import Customer
 from scheduling import services
@@ -121,7 +122,9 @@ class PublicProfessionalsView(PublicAPIView):
         professionals = {}
         for link in links:
             professionals[link.professional_id] = link.professional
-            services_by_professional.setdefault(link.professional_id, []).append(link.service_id)
+            services_by_professional.setdefault(link.professional_id, []).append(
+                link.service_id
+            )
         return Response(
             [
                 {
@@ -204,90 +207,129 @@ class PublicAppointmentCreateView(PublicAPIView):
     def post(self, request):
         organization = self.organization
         serializer = self.serializer_class(
-            data=request.data, context={"request": request, "organization": organization}
+            data=request.data,
+            context={"request": request, "organization": organization},
         )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         now = timezone.now()
 
-        # Serializa a verificação do limite e a criação/reuso de cliente no tenant.
-        with transaction.atomic():
-            customer_services.lock_customer_identity(
-                organization, phone=data["phone"], email=data.get("email", "")
-            )
-            identity = Q(phone=data["phone"])
-            if data.get("email"):
-                identity |= Q(email__iexact=data["email"])
-            matches = list(
-                Customer.objects.select_for_update()
-                .filter(organization=organization)
-                .filter(identity)
-                .order_by("pk")[:2]
-            )
-            if len(matches) > 1:
-                raise serializers.ValidationError(
-                    "Telefone e e-mail estão associados a clientes diferentes. Contate o salão."
+        def create_booking():
+            # Serializa limite, identidade do cliente e reserva no mesmo tenant.
+            with transaction.atomic():
+                customer_services.lock_customer_identity(
+                    organization, phone=data["phone"], email=data.get("email", "")
                 )
-            if matches:
-                customer = matches[0]
-                if customer.phone != data["phone"] or (
-                    data.get("email")
-                    and customer.email
-                    and customer.email.casefold() != data["email"].casefold()
-                ):
+                identity = Q(phone=data["phone"])
+                if data.get("email"):
+                    identity |= Q(email__iexact=data["email"])
+                matches = list(
+                    Customer.objects.select_for_update()
+                    .filter(organization=organization)
+                    .filter(identity)
+                    .order_by("pk")[:2]
+                )
+                if len(matches) > 1:
                     raise serializers.ValidationError(
-                        "Os contatos informados não correspondem ao cadastro existente. "
-                        "Fale com o salão para atualizar seus dados."
+                        "Telefone e e-mail estão associados a clientes diferentes. Contate o salão."
                     )
-            else:
-                customer, _ = Customer.objects.get_or_create(
+                if matches:
+                    customer = matches[0]
+                    if customer.phone != data["phone"] or (
+                        data.get("email")
+                        and customer.email
+                        and customer.email.casefold() != data["email"].casefold()
+                    ):
+                        raise serializers.ValidationError(
+                            "Os contatos informados não correspondem ao cadastro existente. "
+                            "Fale com o salão para atualizar seus dados."
+                        )
+                else:
+                    customer, _ = Customer.objects.get_or_create(
+                        organization=organization,
+                        phone=data["phone"],
+                        defaults={"name": data["name"], "email": data.get("email", "")},
+                    )
+
+                recent_count = Appointment.objects.filter(
                     organization=organization,
-                    phone=data["phone"],
-                    defaults={"name": data["name"], "email": data.get("email", "")},
+                    customer=customer,
+                    created_at__gte=now - timedelta(hours=24),
+                ).count()
+                has_completed_history = Appointment.objects.filter(
+                    organization=organization,
+                    customer=customer,
+                    status=Appointment.Status.COMPLETED,
+                ).exists()
+                limit = (
+                    PUBLIC_APPOINTMENT_LIMIT_RETURNING_PER_24H
+                    if has_completed_history
+                    else PUBLIC_APPOINTMENT_LIMIT_NEW_PER_24H
                 )
-
-            recent_count = Appointment.objects.filter(
-                organization=organization,
-                customer=customer,
-                created_at__gte=now - timedelta(hours=24),
-            ).count()
-            has_completed_history = Appointment.objects.filter(
-                organization=organization,
-                customer=customer,
-                status=Appointment.Status.COMPLETED,
-            ).exists()
-            limit = (
-                PUBLIC_APPOINTMENT_LIMIT_RETURNING_PER_24H
-                if has_completed_history
-                else PUBLIC_APPOINTMENT_LIMIT_NEW_PER_24H
-            )
-            if recent_count >= limit:
-                raise Throttled(
-                    detail=(
-                        "Limite de reservas atingido para este contato nas últimas 24 horas. "
-                        "Tente novamente mais tarde ou fale com o salão."
+                if recent_count >= limit:
+                    raise Throttled(
+                        detail=(
+                            "Limite de reservas atingido para este contato nas últimas 24 horas. "
+                            "Tente novamente mais tarde ou fale com o salão."
+                        )
                     )
+
+                customer.lgpd_consent = True
+                customer.lgpd_consent_at = now
+                customer.save(
+                    update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"]
+                )
+                appointment = services.create_appointment(
+                    organization=organization,
+                    customer=customer,
+                    items=data["items"],
+                    desired_start=data["start_at"],
+                    membership=None,
+                    origin=Appointment.Origin.PUBLIC_PAGE,
                 )
 
-            customer.lgpd_consent = True
-            customer.lgpd_consent_at = now
-            customer.save(update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"])
-            appointment = services.create_appointment(
-                organization=organization,
-                customer=customer,
-                items=data["items"],
-                desired_start=data["start_at"],
-                membership=None,
-                origin=Appointment.Origin.PUBLIC_PAGE,
-            )
-
-        first_item = appointment.items.order_by("order").first()
-        return Response(
-            {
+            first_item = appointment.items.order_by("order").first()
+            return {
                 "id": appointment.pk,
                 "status": appointment.status,
-                "start_at": first_item.start_at if first_item else data["start_at"],
+                "start_at": (
+                    first_item.start_at.isoformat()
+                    if first_item
+                    else data["start_at"].isoformat()
+                ),
                 "origin": Appointment.Origin.PUBLIC_PAGE,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+            }
+
+        idempotency_key = request.headers.get("Idempotency-Key")
+        if idempotency_key:
+            if len(idempotency_key) > 255 or not idempotency_key.strip():
+                raise serializers.ValidationError(
+                    {"Idempotency-Key": "Chave inválida."}
+                )
+            try:
+                result, _ = execute_idempotently(
+                    organization=organization,
+                    context="public_appointment_create",
+                    key=idempotency_key,
+                    data={
+                        "name": data["name"],
+                        "phone": data["phone"],
+                        "email": data.get("email", ""),
+                        "consent": data["consent"],
+                        "start_at": data["start_at"].isoformat(),
+                        "items": [
+                            {
+                                "service": item["service"].pk,
+                                "professional": item["professional"].pk,
+                                "order": item["order"],
+                            }
+                            for item in data["items"]
+                        ],
+                    },
+                    operation=create_booking,
+                )
+            except IdempotencyConflict as error:
+                return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        else:
+            result = create_booking()
+        return Response(result, status=status.HTTP_201_CREATED)

@@ -2,7 +2,14 @@
 Modelos base compartilhados por todos os apps de domínio.
 """
 
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
+
+
+def default_idempotency_expiry():
+    return timezone.now() + timedelta(hours=48)
 
 
 class TimeStampedModel(models.Model):
@@ -37,7 +44,9 @@ class TenantScopedQuerySet(models.QuerySet):
 
     def for_user(self, user):
         """Registros das organizações em que o usuário tem membership ativa."""
-        org_ids = user.memberships.filter(is_active=True).values_list("organization_id", flat=True)
+        org_ids = user.memberships.filter(is_active=True).values_list(
+            "organization_id", flat=True
+        )
         return self.filter(organization_id__in=org_ids)
 
 
@@ -63,3 +72,36 @@ class TenantModel(TimeStampedModel):
 
     class Meta:
         abstract = True
+
+
+class IdempotencyKey(models.Model):
+    """Durable deduplication record scoped by tenant, context and client key."""
+
+    class State(models.TextChoices):
+        PROCESSING = "PROCESSING", "Em processamento"
+        COMPLETED = "COMPLETED", "Concluída"
+
+    key = models.CharField(max_length=255, db_index=True)
+    scope_digest = models.CharField(max_length=64, unique=True)
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="idempotency_keys",
+    )
+    context = models.CharField(max_length=80)
+    request_fingerprint = models.CharField(max_length=64)
+    state = models.CharField(
+        max_length=12, choices=State.choices, default=State.PROCESSING
+    )
+    result = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(default=default_idempotency_expiry, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=("context", "expires_at"), name="idempotency_expiry_idx"
+            )
+        ]

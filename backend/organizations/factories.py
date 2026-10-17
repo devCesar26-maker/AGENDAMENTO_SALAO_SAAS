@@ -1,6 +1,6 @@
 """Factories de salões, memberships e convites (organizations)."""
 
-from factory import Faker, PostGenerationMethodCall, Sequence, SubFactory
+from factory import Sequence, SubFactory
 from factory.django import DjangoModelFactory
 
 from accounts.factories import UserFactory

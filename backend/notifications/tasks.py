@@ -5,12 +5,19 @@ from zoneinfo import ZoneInfo
 
 from celery import shared_task
 from django.conf import settings
-from django.core.mail import send_mail, send_mass_mail
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F, Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from core.idempotency import (
+    claim_side_effect,
+    claim_side_effects,
+    complete_side_effect,
+    complete_side_effects,
+    release_side_effects,
+)
 from notifications.models import NotificationEvent, WaitlistEntry
 from notifications.selectors import (
     appointment_for_notification,
@@ -46,7 +53,25 @@ def _send_appointment_email(appointment, *, subject_template, body_template):
     context = _appointment_email_context(appointment)
     subject = render_to_string(subject_template, context).strip().replace("\n", " ")
     body = render_to_string(body_template, context)
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email])
+    notification_type = subject_template.rsplit("/", 1)[-1].replace("_subject.txt", "")
+    claim_id = claim_side_effect(
+        organization=appointment.organization,
+        context=f"notification_{notification_type}",
+        key=str(appointment.pk),
+        data={
+            "recipient": appointment.customer.email,
+            "subject": subject,
+            "body": body,
+        },
+    )
+    if claim_id is None:
+        return False
+    delivered = send_mail(
+        subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email]
+    )
+    if delivered != 1:
+        raise RuntimeError("O backend de e-mail não confirmou a notificação.")
+    complete_side_effect(claim_id)
     return True
 
 
@@ -68,33 +93,77 @@ def send_appointment_reminders():
     now = timezone.now()
     window_start = now + timedelta(hours=23, minutes=50)
     window_end = now + timedelta(hours=24, minutes=10)
-    with transaction.atomic():
-        appointments = list(
-            reminder_candidates(window_start, window_end)
-            .select_for_update(skip_locked=True)
-            .order_by("pk")
-        )
-        messages = []
-        for appointment in appointments:
-            context = _appointment_email_context(appointment)
-            subject = (
-                render_to_string("notifications/email/appointment_reminder_subject.txt", context)
-                .strip()
-                .replace("\n", " ")
+    appointments = list(reminder_candidates(window_start, window_end).order_by("pk"))
+    by_organization = {}
+    for appointment in appointments:
+        by_organization.setdefault(appointment.organization_id, []).append(appointment)
+    return sum(_send_reminder_batch(group, now) for group in by_organization.values())
+
+
+def _send_reminder_batch(appointments, now):
+    messages = []
+    for appointment in appointments:
+        context = _appointment_email_context(appointment)
+        subject = (
+            render_to_string(
+                "notifications/email/appointment_reminder_subject.txt", context
             )
-            body = render_to_string("notifications/email/appointment_reminder.txt", context)
-            messages.append(
-                (subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email])
-            )
-        if not messages:
-            return 0
-        delivered = send_mass_mail(messages, fail_silently=False)
-        if delivered != len(messages):
-            raise RuntimeError("O backend de e-mail não confirmou todos os lembretes.")
-        Appointment.objects.filter(pk__in=[item.pk for item in appointments]).update(
-            reminder_sent_at=now
+            .strip()
+            .replace("\n", " ")
         )
-        return len(messages)
+        body = render_to_string("notifications/email/appointment_reminder.txt", context)
+        messages.append(
+            (
+                appointment,
+                subject,
+                body,
+                {
+                    "recipient": appointment.customer.email,
+                    "subject": subject,
+                    "body": body,
+                },
+            )
+        )
+    claims = claim_side_effects(
+        organization=appointments[0].organization,
+        context="notification_reminder",
+        effects=[{"key": str(row[0].pk), "data": row[3]} for row in messages],
+    )
+    claimed = [(row, claims[str(row[0].pk)]) for row in messages]
+    duplicate_ids = [row[0].pk for row, claim_id in claimed if claim_id is None]
+    if duplicate_ids:
+        Appointment.objects.filter(
+            pk__in=duplicate_ids, reminder_sent_at__isnull=True
+        ).update(reminder_sent_at=now)
+    sent_ids = []
+    sent_claims = []
+    pending_claims = [claim_id for _, claim_id in claimed if claim_id is not None]
+    for row, claim_id in claimed:
+        if claim_id is None:
+            continue
+        appointment, subject, body, _ = row
+        pending_claims.remove(claim_id)
+        try:
+            delivered = send_mail(
+                subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email]
+            )
+            if delivered != 1:
+                raise RuntimeError("O backend de e-mail não confirmou o lembrete.")
+        except Exception:
+            complete_side_effects(sent_claims)
+            # A claim da mensagem tentada fica persistida: o SMTP pode ter aceitado
+            # a mensagem mesmo se a conexão falhou antes da confirmação local.
+            release_side_effects(pending_claims)
+            if sent_ids:
+                Appointment.objects.filter(pk__in=sent_ids).update(reminder_sent_at=now)
+            raise
+        sent_claims.append(claim_id)
+        sent_ids.append(appointment.pk)
+    if sent_claims:
+        complete_side_effects(sent_claims)
+    if sent_ids:
+        Appointment.objects.filter(pk__in=sent_ids).update(reminder_sent_at=now)
+    return len(sent_ids)
 
 
 @shared_task
@@ -125,11 +194,14 @@ def notify_waitlist_for_canceled_appointment(appointment_id):
             for item in service_items
             if item.service_id == entry.service_id
             and timezone.localtime(item.start_at, tz).date() == entry.desired_date
-            and (entry.professional_id is None or entry.professional_id == item.professional_id)
+            and (
+                entry.professional_id is None
+                or entry.professional_id == item.professional_id
+            )
         )
 
     sent_at = timezone.now()
-    messages = []
+    sent = 0
     for entry in entries:
         item = matching_items[entry.pk]
         start = timezone.localtime(item.start_at, tz)
@@ -143,18 +215,37 @@ def notify_waitlist_for_canceled_appointment(appointment_id):
             "booking_url": f"{settings.FRONTEND_URL.rstrip('/')}/b/{appointment.organization.slug}",
         }
         subject = (
-            render_to_string("notifications/email/waitlist_opening_subject.txt", context)
+            render_to_string(
+                "notifications/email/waitlist_opening_subject.txt", context
+            )
             .strip()
             .replace("\n", " ")
         )
         body = render_to_string("notifications/email/waitlist_opening.txt", context)
-        messages.append((subject, body, settings.DEFAULT_FROM_EMAIL, [entry.customer.email]))
-
-    if not messages:
-        return 0
-    send_mass_mail(messages, fail_silently=False)
-    WaitlistEntry.objects.filter(pk__in=[entry.pk for entry in entries]).update(notified_at=sent_at)
-    return len(messages)
+        claim_id = claim_side_effect(
+            organization=appointment.organization,
+            context="notification_waitlist_opening",
+            key=f"{appointment.pk}:{entry.pk}",
+            data={"recipient": entry.customer.email, "subject": subject, "body": body},
+        )
+        if claim_id is None:
+            WaitlistEntry.objects.filter(pk=entry.pk, notified_at__isnull=True).update(
+                notified_at=sent_at
+            )
+            continue
+        delivered = send_mail(
+            subject, body, settings.DEFAULT_FROM_EMAIL, [entry.customer.email]
+        )
+        if delivered != 1:
+            raise RuntimeError(
+                "O backend de e-mail não confirmou o aviso da lista de espera."
+            )
+        complete_side_effect(claim_id)
+        WaitlistEntry.objects.filter(pk=entry.pk, notified_at__isnull=True).update(
+            notified_at=sent_at
+        )
+        sent += 1
+    return sent
 
 
 @shared_task
@@ -167,7 +258,9 @@ def dispatch_notification_outbox(batch_size=50):
             NotificationEvent.objects.select_for_update(skip_locked=True)
             .filter(
                 Q(state=NotificationEvent.State.PENDING, available_at__lte=now)
-                | Q(state=NotificationEvent.State.PROCESSING, locked_at__lt=stale_before)
+                | Q(
+                    state=NotificationEvent.State.PROCESSING, locked_at__lt=stale_before
+                )
             )
             .order_by("created_at")[:batch_size]
         )

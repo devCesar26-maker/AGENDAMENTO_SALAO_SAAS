@@ -251,6 +251,28 @@ documentada nos docstrings e registrada em testes de IDOR
 - `permissions.py`: papéis reutilizáveis (`IsOrganizationMember`,
   `IsOrganizationManagerOrOwner`, `IsOrganizationOwner`).
 
+### Idempotência de requests e notificações
+
+`core.IdempotencyKey` registra chaves por organização e contexto, com hash do
+escopo, fingerprint do conteúdo, resultado JSON opcional e validade padrão de
+48 horas. O endpoint de reserva pública aceita `Idempotency-Key`: um retry com
+a mesma chave e o mesmo conteúdo devolve o mesmo `201` e o mesmo agendamento;
+reutilizar a chave com outro conteúdo retorna `409`. Sem o header, a reserva
+mantém o comportamento normal. A gravação da reserva e do resultado da chave
+participam da mesma transação. A limpeza pode ser executada com
+`python manage.py cleanup_idempotency_keys`.
+
+E-mails usam chaves naturais separadas por tipo de evento e agendamento (e por
+entrada da lista de espera no aviso de vaga). A reivindicação da notificação é
+persistida antes da chamada SMTP; retries e workers retomados não repetem o
+envio. Como SMTP e PostgreSQL não compartilham uma transação, isso oferece
+semântica de tentativa no máximo uma vez: uma queda depois da reivindicação e
+antes do envio, ou um erro ambíguo do SMTP, pode deixar um e-mail por entregar.
+Gravar somente depois do SMTP permitiria duplicação se o worker caísse após o
+servidor aceitar a mensagem. Esta abstração por contexto e chave pode ser
+reaproveitada na Fase 6 para webhooks de pagamento, armazenando o resultado e o
+fingerprint do evento para reconhecer retries do provedor.
+
 ## Onde o access token mora no frontend (decisão)
 
 - **Access token**: **em memória apenas** (ex.: um `useState`/var de módulo). NUNCA
