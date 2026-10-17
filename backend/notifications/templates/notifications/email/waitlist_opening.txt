@@ -1,0 +1,7 @@
+Olá, {{ customer.name }}!
+
+Abriu um horário para {{ service.name }} com {{ professional.name }} em
+{{ organization.name }}, no dia {{ start|date:"d/m/Y" }} às {{ start|date:"H:i" }}.
+
+O horário não fica reservado e pode ser agendado por outra pessoa. Quem concluir
+primeiro a reserva garante o horário. Acesse {{ booking_url }} para agendar.

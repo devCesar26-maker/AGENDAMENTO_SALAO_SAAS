@@ -36,9 +36,11 @@ services:
     env_file: ./backend/.env.example
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
+      CELERY_TASK_EAGER: 0
       DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
       REDIS_URL: redis://redis:6379/1
       CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       EMAIL_HOST: mailhog
     volumes:
       - ./backend:/app
@@ -60,6 +62,7 @@ services:
       DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
       REDIS_URL: redis://redis:6379/1
       CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       EMAIL_HOST: mailhog
     volumes:
       - ./backend:/app
@@ -76,6 +79,7 @@ services:
       DATABASE_URL: postgres://ecalt:ecalt@db:5432/ecalt
       REDIS_URL: redis://redis:6379/1
       CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       EMAIL_HOST: mailhog
     volumes:
       - ./backend:/app

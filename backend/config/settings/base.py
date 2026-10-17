@@ -264,7 +264,7 @@ CONTENT_SECURITY_POLICY = {
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", env("REDIS_URL", "redis://localhost:6379/0"))
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_ACKS_LATE = True
@@ -276,10 +276,13 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# E-mail: Mailhog em dev.
-EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+# E-mail: settings.dev usa Mailhog por padrão; settings.test usa locmem.
+EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = env("EMAIL_HOST", "mailhog")
 EMAIL_PORT = env_int("EMAIL_PORT", 1025)
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Éclat Studio <nao-responda@ecalt.local>")
 
 # Frontend URL (links em e-mails e página pública).

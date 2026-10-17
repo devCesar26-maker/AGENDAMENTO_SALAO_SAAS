@@ -1,0 +1,7 @@
+Olá, {{ customer.name }}.
+
+Seu agendamento em {{ organization.name }} foi cancelado:
+{% for item in items %}
+- {{ item.service }} com {{ item.professional }} em {{ item.start|date:"d/m/Y H:i" }}.
+{% endfor %}
+Entre em contato com o salão caso precise de ajuda.

@@ -34,6 +34,7 @@ class Appointment(TenantModel):
         related_name="appointments_created",
     )
     notes = models.TextField("observações", blank=True)
+    reminder_sent_at = models.DateTimeField("lembrete enviado em", null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

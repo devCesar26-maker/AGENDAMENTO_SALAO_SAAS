@@ -1,0 +1,7 @@
+Olá, {{ customer.name }}!
+
+Este é um lembrete do seu agendamento em {{ organization.name }}:
+{% for item in items %}
+- {{ item.service }} com {{ item.professional }} em {{ item.start|date:"d/m/Y H:i" }}.
+{% endfor %}
+Esperamos você!

@@ -26,4 +26,29 @@ describe("PublicBookingPage", () => {
     expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("origin");
     expect(await screen.findByText("Reserva solicitada")).toBeInTheDocument();
   });
+
+  it("lets the customer join the waitlist when no slot is available", async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => ({ data: url === "/public/catalog/" ? {services:[{id:1,name:"Corte",duration_minutes:30,price:"50.00"}]} : url === "/public/professionals/" ? [{id:3,name:"Bia",services:[1]}] : {slots:[]} } as never));
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/b/salao"]}><Routes><Route path="/b/:slug" element={<PublicBookingPage/>}/></Routes></MemoryRouter></QueryClientProvider>);
+
+    await user.click(await screen.findByLabelText(/Corte/));
+    await screen.findByText(/Não há horários livres nesta data/);
+    await user.type(screen.getByLabelText("Nome"), "Ana Cliente");
+    await user.type(screen.getByLabelText("Telefone"), "11999999999");
+    await user.type(screen.getByLabelText(/E-mail/), "ana@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Autorizo o uso/ }));
+    await user.click(screen.getByRole("button", { name: "Entrar na lista de espera" }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/public/waitlist/", expect.objectContaining({
+      name: "Ana Cliente",
+      phone: "11999999999",
+      email: "ana@example.com",
+      consent: true,
+      service: 1,
+      professional: null,
+    }), expect.objectContaining({ headers: { "X-Tenant-Slug": "salao" } })));
+    expect(await screen.findByText(/Você entrou na lista de espera/)).toBeInTheDocument();
+  });
 });

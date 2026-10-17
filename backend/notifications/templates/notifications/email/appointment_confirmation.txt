@@ -1,0 +1,7 @@
+Olá, {{ customer.name }}!
+
+Seu agendamento em {{ organization.name }} foi registrado:
+{% for item in items %}
+- {{ item.service }} com {{ item.professional }} em {{ item.start|date:"d/m/Y H:i" }}.
+{% endfor %}
+Se precisar alterar o horário, entre em contato com o salão.

@@ -23,4 +23,16 @@ if not ALLOWED_HOSTS:
 if env("DJANGO_SECRET_KEY", "").startswith("dev-only"):
     raise RuntimeError("DJANGO_SECRET_KEY de desenvolvimento detectada em produção.")
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env("BREVO_SMTP_HOST", "smtp-relay.brevo.com")
+EMAIL_PORT = env_int("BREVO_SMTP_PORT", 587)
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env("BREVO_SMTP_LOGIN", "")
+EMAIL_HOST_PASSWORD = env("BREVO_SMTP_PASSWORD", "")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "")
+if EMAIL_BACKEND.endswith("smtp.EmailBackend") and not all(
+    (EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, DEFAULT_FROM_EMAIL)
+):
+    raise RuntimeError(
+        "BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD e DEFAULT_FROM_EMAIL são obrigatórios em produção."
+    )

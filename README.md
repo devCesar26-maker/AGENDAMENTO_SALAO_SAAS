@@ -144,9 +144,60 @@ SSL é terminado.
 | PATCH | `/api/v1/appointments/{id}/status/` | Alterar status |
 | POST | `/api/v1/appointments/{id}/cancel/` | Cancelar preservando histórico |
 
-`PUBLIC_PAGE` já existe como origem de agendamento, mas a reserva pública,
-a agenda visual do dashboard e o fluxo público por subdomínio ficam para a
-Fase 4.
+`PUBLIC_PAGE` é a origem registrada pelo servidor para agendamentos criados na
+página pública de reserva.
+
+### Notificações e lista de espera (Fase 5)
+
+- Confirmações, lembretes 24h antes e cancelamentos são enviados por tasks
+  Celery depois do commit da transação. O Beat verifica a cada
+  `REMINDER_CRON_SECONDS` (padrão: 900 segundos) os horários na janela de
+  23h50–24h10 e registra `reminder_sent_at` para evitar repetição.
+- **Endpoints autenticados** (OWNER/MANAGER): `GET/POST /api/v1/waitlist/` e
+  `DELETE /api/v1/waitlist/{id}/`. A listagem é paginada e filtrada pelo tenant.
+- **Inscrição pública**: `POST /api/v1/public/waitlist/`, resolvida pelo Host ou
+  `X-Tenant-Slug` em desenvolvimento. Recebe contato, consentimento, serviço,
+  profissional opcional e data desejada. A organização nunca é aceita do corpo.
+- Ao cancelar um agendamento, entradas ainda não notificadas que coincidam
+  com serviço, profissional (ou qualquer profissional) e data local recebem um
+  e-mail. A vaga não fica reservada: **quem concluir o agendamento primeiro
+  garante o horário**, inclusive outra pessoa pela página pública.
+- `converted_at` é marcado quando o próprio cliente da lista cria um
+  agendamento compatível para aquele serviço/profissional/data.
+
+#### E-mail local e produção
+
+No Compose, o backend e o worker enviam via SMTP para Mailhog
+(`EMAIL_HOST=mailhog`, porta `1025`); consulte as mensagens em
+<http://localhost:8025>. O backend de testes substitui SMTP por
+`django.core.mail.backends.locmem.EmailBackend`, sem dependência de rede.
+
+Para trocar o backend, configure `EMAIL_BACKEND` no ambiente. Em
+desenvolvimento, mantenha `django.core.mail.backends.smtp.EmailBackend` com
+`EMAIL_HOST=mailhog` e `EMAIL_PORT=1025`, ou use
+`django.core.mail.backends.console.EmailBackend` para imprimir as mensagens no
+terminal. Em produção, `config.settings.prod` usa o relay SMTP da Brevo por
+padrão (`smtp-relay.brevo.com:587`, TLS), configurado com:
+
+```dotenv
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+BREVO_SMTP_HOST=smtp-relay.brevo.com
+BREVO_SMTP_PORT=587
+BREVO_SMTP_LOGIN=
+BREVO_SMTP_PASSWORD=
+DEFAULT_FROM_EMAIL=naoresponda@seu-dominio-verificado.example
+```
+
+`BREVO_SMTP_PASSWORD` deve conter a **chave SMTP** da Brevo, nunca a senha da
+conta. Antes do envio em produção, verifique o domínio remetente no painel da
+Brevo e publique os registros SPF/DKIM solicitados. Nunca inclua credenciais
+reais no repositório.
+
+Para testar localmente: `docker compose up --build`, crie um agendamento com
+um cliente que tenha e-mail, cancele outro com entradas compatíveis na espera
+e acompanhe as mensagens em Mailhog. Para verificar um lembrete sem aguardar
+24h, crie um AppointmentItem com início dentro da janela e invoque
+`notifications.tasks.send_appointment_reminders` pelo shell Django.
 
 ## Arquitetura de multi-tenancy (shared-schema)
 
@@ -228,6 +279,6 @@ Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 - [X] **Fase 1** — auth, salões, memberships, convites, isolamento de tenant
 - [X] **Fase 2** — categorias, serviços, profissionais, clientes (LGPD)
 - [X] **Fase 3** — API de disponibilidade e agendamentos multi-serviço
-- [ ] Fase 4 — agenda FullCalendar + página pública de reserva
-- [ ] Fase 5 — Celery, e-mails, lembretes, lista de espera
+- [X] Fase 4 — agenda FullCalendar + página pública de reserva
+- [X] Fase 5 — Celery, e-mails, lembretes, lista de espera
 - [ ] Fase 6 — planos, limites e cobrança
