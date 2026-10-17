@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/v1/", include("organizations.urls")),
     path("api/v1/", include("catalog.urls")),
     path("api/v1/", include("customers.urls")),
+    path("api/v1/", include("scheduling.urls")),
 ]
 
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:

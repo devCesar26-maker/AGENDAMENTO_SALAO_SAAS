@@ -48,10 +48,18 @@ class TestWorkingHours:
         assert professional.working_hours.count() == 1
 
     def test_horario_invalido_rejeitado(self, auth_client, professional):
-        payload = {**JANELA, "start_time": "18:00", "end_time": "09:00"}
+        payload = {**JANELA, "start_time": "18:00", "end_time": "18:00"}
         response = auth_client.post(wh_list_url(professional.pk), payload, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert professional.working_hours.count() == 0
+
+    def test_horario_noturno_que_cruza_meia_noite_e_permitido(self, auth_client, professional):
+        response = auth_client.post(
+            wh_list_url(professional.pk),
+            {**JANELA, "start_time": "22:00", "end_time": "02:00"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
 
     def test_professional_cria_no_proprio(self, professional_client, professional):
         response = professional_client.post(wh_list_url(professional.pk), JANELA, format="json")

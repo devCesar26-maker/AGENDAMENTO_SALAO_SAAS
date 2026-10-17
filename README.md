@@ -119,6 +119,35 @@ SSL é terminado.
 | GET/PATCH/DELETE | `/api/v1/customers/{id}/`       | todo membro do salão                         |
 | POST | `/api/v1/customers/{id}/lgpd-consent/`      | todo membro do salão (carimbo no servidor)  |
 
+## Fase 3 implementada (backend/API)
+
+- **Disponibilidade**: slots em intervalos de 15 minutos, no fuso da
+  organização, considerando horário do salão e dos profissionais, vínculos
+  serviço–profissional, folgas, duração/overrides, buffers e agendamentos
+  existentes. Horários locais inexistentes durante a mudança de DST são
+  ignorados; períodos noturnos podem cruzar a meia-noite.
+- **Agendamentos**: cabeçalho e itens sequenciais com profissional por item,
+  preço, comissão e buffer em snapshot. Criação revalida a disponibilidade
+  dentro de transação e serializa concorrência com lock dos profissionais e dos itens
+  existentes. Se o slot foi ocupado, a API retorna HTTP 409.
+- **Acesso**: OWNER/MANAGER veem e alteram agendamentos da organização;
+  PROFESSIONAL só vê e altera agendamentos com item atribuído ao próprio
+  perfil. Os filtros e a paginação ficam escopados ao tenant.
+- **Cancelamento**: agendamento não é removido. Use a action de cancelamento,
+  que altera o status para `CANCELED` e preserva o histórico.
+
+| Método | Rota | Uso |
+| ------ | ---- | --- |
+| GET | `/api/v1/availability/?services=<ids>&professional=<id\|any>&date=<YYYY-MM-DD>` | Slots e atribuição por serviço |
+| POST/GET | `/api/v1/appointments/` | Criar / listar com filtros `date`, `professional`, `status`, `customer` |
+| GET | `/api/v1/appointments/{id}/` | Detalhe e itens |
+| PATCH | `/api/v1/appointments/{id}/status/` | Alterar status |
+| POST | `/api/v1/appointments/{id}/cancel/` | Cancelar preservando histórico |
+
+`PUBLIC_PAGE` já existe como origem de agendamento, mas a reserva pública,
+a agenda visual do dashboard e o fluxo público por subdomínio ficam para a
+Fase 4.
+
 ## Arquitetura de multi-tenancy (shared-schema)
 
 Uma única base; toda entidade de negócio tem FK para `Organization`, resolvidos
@@ -186,7 +215,7 @@ Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 - [X] **Fase 0** — scaffolding, Docker, CI, lint, headers de segurança
 - [X] **Fase 1** — auth, salões, memberships, convites, isolamento de tenant
 - [X] **Fase 2** — categorias, serviços, profissionais, clientes (LGPD)
-- [ ] Fase 3 — motor de disponibilidade e agendamentos multi-serviço
+- [X] **Fase 3** — API de disponibilidade e agendamentos multi-serviço
 - [ ] Fase 4 — agenda FullCalendar + página pública de reserva
 - [ ] Fase 5 — Celery, e-mails, lembretes, lista de espera
 - [ ] Fase 6 — planos, limites e cobrança

@@ -205,8 +205,10 @@ class WorkingHoursSerializer(serializers.ModelSerializer):
         # PATCH parcial: complementa com os valores persistidos antes de validar.
         start = attrs.get("start_time", getattr(self.instance, "start_time", None))
         end = attrs.get("end_time", getattr(self.instance, "end_time", None))
-        if start is not None and end is not None and start >= end:
-            raise serializers.ValidationError({"end_time": "O término deve ser depois do início."})
+        if start is not None and end is not None and start == end:
+            raise serializers.ValidationError(
+                {"end_time": "O início e o término não podem ser iguais."}
+            )
         return attrs
 
 
