@@ -105,3 +105,6 @@ class IdempotencyKey(models.Model):
                 fields=("context", "expires_at"), name="idempotency_expiry_idx"
             )
         ]
+
+    def __str__(self):
+        return f"{self.context}:{self.key}"
