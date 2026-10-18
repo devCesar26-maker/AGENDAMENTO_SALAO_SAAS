@@ -202,6 +202,7 @@ referencing==0.37.0
     #   jsonschema-specifications
 requests==2.34.2
     # via
+    #   -r backend/requirements.in
     #   cachecontrol
     #   pip-audit
 rich==15.0.0

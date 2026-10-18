@@ -55,7 +55,7 @@ def exception_handler(exc, context):
         )
     detail = getattr(exc, "detail", None)
     if isinstance(detail, dict) and "detail" in detail:
-        error_data = {key: value for key, value in detail.items()}
+        error_data = dict(detail)
         error_data["detail"] = _normalize_detail(error_data["detail"])
         for field in ("limit", "usage"):
             if field in error_data:

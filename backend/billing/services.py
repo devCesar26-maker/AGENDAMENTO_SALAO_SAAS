@@ -3,10 +3,9 @@
 import hashlib
 import hmac
 import json
-import urllib.error
-import urllib.request
 from datetime import datetime, timedelta
 
+import requests
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -86,20 +85,17 @@ def _mp_request(url, *, method="GET", payload=None):
     token = getattr(settings, "MP_ACCESS_TOKEN", "")
     if not token:
         raise PaymentProviderError("Mercado Pago não configurado (MP_ACCESS_TOKEN).")
-    data = json.dumps(payload).encode() if payload is not None else None
-    request = urllib.request.Request(
-        url,
-        data=data,
-        method=method,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-    )
+    headers = {"Authorization": f"Bearer {token}"}
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            return json.loads(response.read())
-    except (urllib.error.URLError, TimeoutError, ValueError) as error:
+        if method == "POST":
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=10, verify=True
+            )
+        else:
+            response = requests.get(url, headers=headers, timeout=10, verify=True)
+        response.raise_for_status()
+        return response.json()
+    except (requests.RequestException, ValueError) as error:
         raise PaymentProviderError() from error
 
 

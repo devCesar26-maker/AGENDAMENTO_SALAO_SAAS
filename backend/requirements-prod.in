@@ -16,3 +16,4 @@ nh3==0.3.*
 whitenoise==6.9.*
 dj-database-url==3.0.*
 python-dotenv==1.2.*
+requests==2.34.*
