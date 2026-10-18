@@ -5,10 +5,12 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
+import { AppearanceSettings } from "../components/AppearanceSettings";
 
 type Row<T> = T[] | { results: T[] };
 type Service = { id: number; name: string };
@@ -59,9 +61,9 @@ export function AgendaPage() {
   };
   const onClick = (info: { event: { extendedProps: Record<string, unknown> } }) => setActive(info.event.extendedProps.appointment as Appointment);
   const dataError = appointmentQuery.isError || servicesQuery.isError || professionalsQuery.isError || customersQuery.isError;
-  return <div className="min-h-screen bg-slate-50">
-    <header className="flex items-center justify-between border-b bg-white px-4 py-3"><span className="font-semibold">Éclat Studio · Agenda</span><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:inline">{user?.email} · {user?.role}</span><button onClick={() => void logout()} className="rounded-lg border px-3 py-1.5 text-sm">Sair</button></div></header>
-    <main className="mx-auto max-w-7xl p-3 sm:p-6"><div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-semibold text-slate-900">Agenda</h1><button onClick={() => openCreate()} className="rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white">Novo agendamento</button></div>
+  return <div className="app-shell">
+    <header className="topbar"><Link className="brand-lockup" to="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></Link><nav className="topnav"><span className="nav-current">Agenda</span>{user?.role !== "PROFESSIONAL" && <Link to="/app/servicos">Serviços</Link>}</nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button onClick={() => void logout()} className="button-quiet">Sair</button></div></header>
+    <main className="page-content"><div className="page-heading"><div><p className="eyebrow">VISÃO GERAL</p><h1>Agenda</h1><p className="muted-copy">Acompanhe os atendimentos do seu espaço.</p></div><button onClick={() => openCreate()} className="button-primary">Novo agendamento</button></div>
       {appointmentQuery.isLoading ? <p role="status" className="rounded-xl bg-white p-8 text-center">Carregando agenda…</p> : dataError ? <p role="alert" className="rounded-xl bg-white p-8 text-center text-red-700">Não foi possível carregar dados da agenda. {errorMessage(appointmentQuery.error)}</p> : <><div className="overflow-x-auto rounded-xl bg-white p-2 shadow-sm sm:p-4"><FullCalendar plugins={[dayGridPlugin,timeGridPlugin,interactionPlugin]} initialView="timeGridWeek" headerToolbar={{ left:"prev,next today", center:"title", right:"timeGridDay,timeGridWeek,dayGridMonth" }} locale="pt-br" selectable select={openCreate} editable eventDrop={onDrop} eventClick={onClick} events={events} datesSet={(arg) => setSelectedDate(localDate(arg.view.currentStart))} height="auto" /></div>{events.length === 0 && <p className="mt-3 text-center text-sm text-slate-600">Nenhum agendamento neste período.</p>}</>}
     </main>
     {formOpen && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"><section className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 sm:max-w-lg sm:rounded-2xl" aria-labelledby="create-title"><div className="flex justify-between"><h2 id="create-title" className="text-lg font-semibold">Novo agendamento</h2><button aria-label="Fechar" onClick={() => setFormOpen(false)}>✕</button></div>{formError && <p role="alert" className="mt-3 text-sm text-red-700">{formError}</p>}<form className="mt-4 space-y-4" onSubmit={handleSubmit((v) => create.mutate(v))}>

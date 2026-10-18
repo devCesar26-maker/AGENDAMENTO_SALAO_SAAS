@@ -12,6 +12,9 @@ const AgendaPage = lazy(() =>
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage").then(({ PublicBookingPage }) => ({ default: PublicBookingPage })),
 );
+const ServicesPage = lazy(() =>
+  import("./pages/ServicesPage").then(({ ServicesPage }) => ({ default: ServicesPage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +35,14 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <AgendaPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/app/servicos"
+                element={
+                  <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                    <ServicesPage />
                   </ProtectedRoute>
                 }
               />

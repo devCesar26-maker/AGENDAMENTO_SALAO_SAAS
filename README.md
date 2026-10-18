@@ -328,6 +328,16 @@ e `data_fim`; acesso restrito a OWNER/MANAGER. Registra cancelamentos,
 desativação de membros, mudanças de tier e alterações de percentual de comissão.
 Webhooks de billing têm ator `null`. O contexto é allowlisted e não guarda
 payloads, dados de clientes, senhas, tokens ou informações de pagamento.
+Essa trilha cobre esses eventos de negócio; ela não é uma auditoria integral de
+autenticação, alterações de dados ou de todos os endpoints do sistema.
+
+O frontend autenticado inclui catálogo de serviços para OWNER/MANAGER, com
+criação e edição de serviços e categorias. A aparência escura usa tons carvão
+e dourado; a imagem de fundo pode ser carregada nas preferências visuais e seus
+níveis de sombra/desfoque e enquadramento são guardados no navegador, separados por organização.
+Essa preferência local ainda não é uma configuração compartilhada entre membros
+nem aparece no link público de reservas; isso depende de persistência de marca
+por organização no backend e armazenamento de imagem.
 
 ## Onde o access token mora no frontend (decisão)
 
