@@ -16,11 +16,16 @@ from customers.models import Customer
 from notifications.models import WaitlistEntry
 from notifications.permissions import WaitlistManagerAccess
 from notifications.selectors import list_waitlist_entries
-from notifications.serializers import PublicWaitlistEntrySerializer, WaitlistEntrySerializer
+from notifications.serializers import (
+    PublicWaitlistEntrySerializer,
+    WaitlistEntrySerializer,
+)
 
 
 @extend_schema(tags=["waitlist"])
-class WaitlistEntryListCreateView(TenantSerializerContextMixin, generics.ListCreateAPIView):
+class WaitlistEntryListCreateView(
+    TenantSerializerContextMixin, generics.ListCreateAPIView
+):
     serializer_class = WaitlistEntrySerializer
     permission_classes = [WaitlistManagerAccess]
     pagination_class = DefaultPagination
@@ -32,7 +37,8 @@ class WaitlistEntryListCreateView(TenantSerializerContextMixin, generics.ListCre
     def create(self, request, *args, **kwargs):
         organization, _ = resolve_membership(request)
         serializer = self.get_serializer(
-            data=request.data, context={"request": request, "organization": organization}
+            data=request.data,
+            context={"request": request, "organization": organization},
         )
         serializer.is_valid(raise_exception=True)
         entry = serializer.save(organization=organization)
@@ -69,7 +75,8 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
         if organization is None:
             raise serializers.ValidationError("Organização pública não identificada.")
         serializer = self.get_serializer(
-            data=request.data, context={"request": request, "organization": organization}
+            data=request.data,
+            context={"request": request, "organization": organization},
         )
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data

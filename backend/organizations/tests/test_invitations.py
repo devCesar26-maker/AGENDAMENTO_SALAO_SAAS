@@ -56,14 +56,18 @@ class TestCriarConvite:
     def test_convite_duplicado_do_email_rejeitado(self, auth_client, organization):
         InvitationFactory(organization=organization, email="pendente@x.com")
         response = auth_client.post(
-            inv_url(organization), {"email": "Pendente@x.com", "role": "MANAGER"}, format="json"
+            inv_url(organization),
+            {"email": "Pendente@x.com", "role": "MANAGER"},
+            format="json",
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert organization.invitations.count() == 1
 
     def test_role_invalido_rejeitado(self, auth_client, organization):
         response = auth_client.post(
-            inv_url(organization), {"email": "teste@x.com", "role": "SUPERUSER"}, format="json"
+            inv_url(organization),
+            {"email": "teste@x.com", "role": "SUPERUSER"},
+            format="json",
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert organization.invitations.count() == 0
@@ -98,7 +102,11 @@ class TestListarConvites:
 
 class TestAceitarConvite:
     def _payload(self, **kwargs):
-        base = {"password": "SenhaNova#2026!", "first_name": "Carlos", "last_name": "Lima"}
+        base = {
+            "password": "SenhaNova#2026!",
+            "first_name": "Carlos",
+            "last_name": "Lima",
+        }
         base.update(kwargs)
         return base
 
@@ -124,7 +132,9 @@ class TestAceitarConvite:
 
     def test_usuario_existente_e_apenas_vinculado(self, api_client, organization):
         existing = UserFactory(email="seguidor@x.com")
-        invitation = InvitationFactory(organization=organization, email="seguidor@x.com")
+        invitation = InvitationFactory(
+            organization=organization, email="seguidor@x.com"
+        )
         response = api_client.post(
             accept_url(invitation.token), {"password": "Outra#2026!"}, format="json"
         )
@@ -132,20 +142,28 @@ class TestAceitarConvite:
         assert response.status_code == status.HTTP_201_CREATED
         existing.refresh_from_db()
         assert existing.check_password("Senha#2026!")  # senha não foi alterada
-        assert Membership.objects.filter(user=existing, organization=organization).exists()
+        assert Membership.objects.filter(
+            user=existing, organization=organization
+        ).exists()
 
     def test_expirado_e_invalido_erro_identico(self, api_client):
-        invitation_expirada = InvitationFactory(expires_at=timezone.now() - timedelta(days=1))
+        invitation_expirada = InvitationFactory(
+            expires_at=timezone.now() - timedelta(days=1)
+        )
         expired = api_client.post(
             accept_url(invitation_expirada.token), self._payload(), format="json"
         )
-        invalido = api_client.post(accept_url("token-inexistente"), self._payload(), format="json")
+        invalido = api_client.post(
+            accept_url("token-inexistente"), self._payload(), format="json"
+        )
 
         assert expired.status_code == invalido.status_code
         assert expired.json() == invalido.json()
 
     def test_senha_obrigatoria_para_novo_usuario(self, api_client, organization):
         invitation = InvitationFactory(organization=organization, email="novinho@x.com")
-        response = api_client.post(accept_url(invitation.token), {"first_name": "X"}, format="json")
+        response = api_client.post(
+            accept_url(invitation.token), {"first_name": "X"}, format="json"
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "password" in str(response.content).lower()

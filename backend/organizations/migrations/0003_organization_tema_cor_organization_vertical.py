@@ -6,18 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organizations', '0002_alter_invitation_options_alter_membership_options_and_more'),
+        (
+            "organizations",
+            "0002_alter_invitation_options_alter_membership_options_and_more",
+        ),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='organization',
-            name='tema_cor',
-            field=models.CharField(default='#8B5CF6', max_length=7, verbose_name='tema de cor'),
+            model_name="organization",
+            name="tema_cor",
+            field=models.CharField(
+                default="#8B5CF6", max_length=7, verbose_name="tema de cor"
+            ),
         ),
         migrations.AddField(
-            model_name='organization',
-            name='vertical',
-            field=models.CharField(choices=[('SALAO', 'Salão'), ('BARBEARIA', 'Barbearia')], default='SALAO', max_length=20, verbose_name='vertical'),
+            model_name="organization",
+            name="vertical",
+            field=models.CharField(
+                choices=[("SALAO", "Salão"), ("BARBEARIA", "Barbearia")],
+                default="SALAO",
+                max_length=20,
+                verbose_name="vertical",
+            ),
         ),
     ]

@@ -79,10 +79,14 @@ class TestRegisterEndpoint:
             format="json",
         )
         assert response.status_code == status.HTTP_201_CREATED
-        organization = Organization.objects.get(pk=response.json()["organization"]["id"])
+        organization = Organization.objects.get(
+            pk=response.json()["organization"]["id"]
+        )
         assert organization.vertical == vertical
         assert Service.objects.filter(organization=organization, name=expected).exists()
-        assert organization.tema_cor == ("#2563EB" if vertical == "BARBEARIA" else "#8B5CF6")
+        assert organization.tema_cor == (
+            "#2563EB" if vertical == "BARBEARIA" else "#8B5CF6"
+        )
 
     def test_vertical_obrigatoria(self, api_client):
         response = api_client.post(

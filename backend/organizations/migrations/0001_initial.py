@@ -20,7 +20,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -29,7 +32,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("name", models.CharField(max_length=120, verbose_name="nome")),
                 (
                     "slug",
@@ -43,11 +49,23 @@ class Migration(migrations.Migration):
                 (
                     "timezone",
                     models.CharField(
-                        default="America/Sao_Paulo", max_length=64, verbose_name="fuso horário"
+                        default="America/Sao_Paulo",
+                        max_length=64,
+                        verbose_name="fuso horário",
                     ),
                 ),
-                ("phone", models.CharField(blank=True, max_length=20, verbose_name="telefone")),
-                ("address", models.CharField(blank=True, max_length=255, verbose_name="endereço")),
+                (
+                    "phone",
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="telefone"
+                    ),
+                ),
+                (
+                    "address",
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="endereço"
+                    ),
+                ),
                 (
                     "working_hours",
                     models.JSONField(
@@ -71,7 +89,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -80,7 +101,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 (
                     "role",
                     models.CharField(
@@ -127,7 +151,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -136,7 +163,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("email", models.EmailField(max_length=254, verbose_name="e-mail")),
                 (
                     "role",
@@ -159,7 +189,9 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "accepted_at",
-                    models.DateTimeField(blank=True, null=True, verbose_name="aceito em"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="aceito em"
+                    ),
                 ),
                 ("expires_at", models.DateTimeField(verbose_name="expira em")),
                 (

@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('scheduling', '0001_initial'),
+        ("scheduling", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='appointmentitem',
-            name='buffer_minutes',
-            field=models.PositiveSmallIntegerField(default=0, verbose_name='buffer no agendamento'),
+            model_name="appointmentitem",
+            name="buffer_minutes",
+            field=models.PositiveSmallIntegerField(
+                default=0, verbose_name="buffer no agendamento"
+            ),
         ),
     ]

@@ -25,7 +25,13 @@ class CustomerSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "lgpd_consent", "lgpd_consent_at", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "lgpd_consent",
+            "lgpd_consent_at",
+            "created_at",
+            "updated_at",
+        ]
 
     def validate_name(self, value: str) -> str:
         return sanitize_free_text(value)

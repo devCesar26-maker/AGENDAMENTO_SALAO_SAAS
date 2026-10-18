@@ -5,7 +5,10 @@ from organizations.models import Organization
 
 VERTICAL_CATALOG = {
     Organization.Vertical.BARBEARIA: {
-        "Corte Masculino": [("Corte Masculino", 40, "45.00"), ("Corte Infantil", 30, "35.00")],
+        "Corte Masculino": [
+            ("Corte Masculino", 40, "45.00"),
+            ("Corte Infantil", 30, "35.00"),
+        ],
         "Barba": [("Barba", 30, "30.00")],
         "Sobrancelha": [("Sobrancelha", 15, "15.00")],
         "Combos": [("Combo Corte + Barba", 60, "65.00")],

@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('scheduling', '0002_appointmentitem_buffer_minutes'),
+        ("scheduling", "0002_appointmentitem_buffer_minutes"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='appointment',
-            name='reminder_sent_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='lembrete enviado em'),
+            model_name="appointment",
+            name="reminder_sent_at",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="lembrete enviado em"
+            ),
         ),
     ]

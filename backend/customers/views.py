@@ -44,7 +44,9 @@ class CustomerListCreateView(
 
 @extend_schema(tags=["customers"])
 class CustomerDetailView(
-    TenantModelViewSet, TenantSerializerContextMixin, generics.RetrieveUpdateDestroyAPIView
+    TenantModelViewSet,
+    TenantSerializerContextMixin,
+    generics.RetrieveUpdateDestroyAPIView,
 ):
     """DETALHE/PATCH/DELETE de cliente (member-level; escopado ao tenant)."""
 

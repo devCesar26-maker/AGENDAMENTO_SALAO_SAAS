@@ -13,7 +13,9 @@ urlpatterns = [
     path("auth/refresh/", views.RefreshTokenView.as_view(), name="auth-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
     path(
-        "auth/password/reset/", views.PasswordResetRequestView.as_view(), name="auth-password-reset"
+        "auth/password/reset/",
+        views.PasswordResetRequestView.as_view(),
+        name="auth-password-reset",
     ),
     path(
         "auth/password/reset/confirm/",

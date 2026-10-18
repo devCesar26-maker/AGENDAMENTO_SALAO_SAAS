@@ -15,7 +15,11 @@ class AppointmentAccess(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         organization, membership = resolve_membership(request)
-        if organization is None or membership is None or obj.organization_id != organization.id:
+        if (
+            organization is None
+            or membership is None
+            or obj.organization_id != organization.id
+        ):
             return False
         if membership.role in (Membership.Role.OWNER, Membership.Role.MANAGER):
             return True

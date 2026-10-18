@@ -9,7 +9,10 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("organizations", "0002_alter_invitation_options_alter_membership_options_and_more"),
+        (
+            "organizations",
+            "0002_alter_invitation_options_alter_membership_options_and_more",
+        ),
     ]
 
     operations = [
@@ -19,7 +22,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -28,10 +34,18 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("name", models.CharField(max_length=120, verbose_name="nome")),
                 ("phone", models.CharField(max_length=20, verbose_name="telefone")),
-                ("email", models.EmailField(blank=True, max_length=254, verbose_name="e-mail")),
+                (
+                    "email",
+                    models.EmailField(
+                        blank=True, max_length=254, verbose_name="e-mail"
+                    ),
+                ),
                 (
                     "notes",
                     models.TextField(
@@ -40,10 +54,15 @@ class Migration(migrations.Migration):
                         verbose_name="observações",
                     ),
                 ),
-                ("birthday", models.DateField(blank=True, null=True, verbose_name="aniversário")),
+                (
+                    "birthday",
+                    models.DateField(blank=True, null=True, verbose_name="aniversário"),
+                ),
                 (
                     "lgpd_consent",
-                    models.BooleanField(default=False, verbose_name="consentimento LGPD"),
+                    models.BooleanField(
+                        default=False, verbose_name="consentimento LGPD"
+                    ),
                 ),
                 (
                     "lgpd_consent_at",

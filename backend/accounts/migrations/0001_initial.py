@@ -20,13 +20,18 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("password", models.CharField(max_length=128, verbose_name="password")),
                 (
                     "last_login",
-                    models.DateTimeField(blank=True, null=True, verbose_name="last login"),
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="last login"
+                    ),
                 ),
                 (
                     "is_superuser",
@@ -38,11 +43,15 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "first_name",
-                    models.CharField(blank=True, max_length=150, verbose_name="first name"),
+                    models.CharField(
+                        blank=True, max_length=150, verbose_name="first name"
+                    ),
                 ),
                 (
                     "last_name",
-                    models.CharField(blank=True, max_length=150, verbose_name="last name"),
+                    models.CharField(
+                        blank=True, max_length=150, verbose_name="last name"
+                    ),
                 ),
                 (
                     "is_staff",
@@ -69,10 +78,18 @@ class Migration(migrations.Migration):
                 (
                     "email",
                     models.EmailField(
-                        db_index=True, max_length=254, unique=True, verbose_name="e-mail"
+                        db_index=True,
+                        max_length=254,
+                        unique=True,
+                        verbose_name="e-mail",
                     ),
                 ),
-                ("phone", models.CharField(blank=True, max_length=20, verbose_name="telefone")),
+                (
+                    "phone",
+                    models.CharField(
+                        blank=True, max_length=20, verbose_name="telefone"
+                    ),
+                ),
                 (
                     "groups",
                     models.ManyToManyField(

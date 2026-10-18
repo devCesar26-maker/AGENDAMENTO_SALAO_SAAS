@@ -42,7 +42,9 @@ SECRET_KEY = env(
 )
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = [
-    h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
+    h.strip()
+    for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
 ]
 PUBLIC_BASE_DOMAIN = env("PUBLIC_BASE_DOMAIN", "")
 if PUBLIC_BASE_DOMAIN.strip():
@@ -133,7 +135,9 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
 ]
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {"min_length": 8},
@@ -158,7 +162,9 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
 }
 
 # DRF: JWT obrigatório exceto rotas públicas; erros em formato único.
@@ -222,7 +228,9 @@ SPECTACULAR_SETTINGS = {
 # CORS restrito ao frontend.
 CORS_ALLOWED_ORIGINS = [
     o.strip()
-    for o in env("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    for o in env(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
     if o.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -239,7 +247,9 @@ REFRESH_TOKEN_COOKIE_SECURE = env_bool(
 REFRESH_TOKEN_COOKIE_SAMESITE = env("REFRESH_TOKEN_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_HTTPONLY = False  # frontend precisa ler o token para POSTs com cookie
 CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173").split(",") if o.strip()
+    o.strip()
+    for o in env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
 ]
 SESSION_COOKIE_HTTPONLY = True
 
@@ -268,7 +278,9 @@ CONTENT_SECURITY_POLICY = {
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", env("REDIS_URL", "redis://localhost:6379/0"))
+CELERY_RESULT_BACKEND = env(
+    "CELERY_RESULT_BACKEND", env("REDIS_URL", "redis://localhost:6379/0")
+)
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_ACKS_LATE = True
@@ -291,7 +303,9 @@ EMAIL_PORT = env_int("EMAIL_PORT", 1025)
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Éclat Studio <nao-responda@ecalt.local>")
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", "Éclat Studio <nao-responda@ecalt.local>"
+)
 
 # Frontend URL (links em e-mails e página pública).
 FRONTEND_URL = env("FRONTEND_URL", "http://localhost:5173")
@@ -317,7 +331,9 @@ SANITIZE_ALLOWLIST_TAGS = ("b", "i", "em", "strong", "br", "p")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"simple": {"format": "{levelname} {asctime} {name} {message}", "style": "{"}},
+    "formatters": {
+        "simple": {"format": "{levelname} {asctime} {name} {message}", "style": "{"}
+    },
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["console"], "level": "INFO"},
     "loggers": {

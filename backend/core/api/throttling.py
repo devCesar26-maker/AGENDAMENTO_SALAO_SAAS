@@ -1,6 +1,10 @@
 """Throttling: taxa por usuário; taxas específicas para auth e rota pública."""
 
-from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle, UserRateThrottle
+from rest_framework.throttling import (
+    ScopedRateThrottle,
+    SimpleRateThrottle,
+    UserRateThrottle,
+)
 
 
 class RoleUserRateThrottle(UserRateThrottle):
@@ -25,4 +29,7 @@ class PublicBookingRateThrottle(SimpleRateThrottle):
     scope = "public_booking"
 
     def get_cache_key(self, request, view):
-        return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }

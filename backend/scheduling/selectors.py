@@ -11,7 +11,13 @@ from scheduling.models import Appointment, AppointmentItem
 
 
 def load_availability_data(
-    organization, services, date, window_start, window_end, *, exclude_appointment_id=None
+    organization,
+    services,
+    date,
+    window_start,
+    window_end,
+    *,
+    exclude_appointment_id=None
 ):
     """Carrega em lote vínculos, horários, folgas e ocupações para um cálculo."""
     from catalog.models import TimeOff, WorkingHours
@@ -27,7 +33,9 @@ def load_availability_data(
     )
     professional_ids = {link.professional_id for link in links}
     hours = list(
-        WorkingHours.objects.filter(organization=organization, professional_id__in=professional_ids)
+        WorkingHours.objects.filter(
+            organization=organization, professional_id__in=professional_ids
+        )
     )
     first_date = window_start.date()
     last_date = window_end.date()
@@ -44,7 +52,10 @@ def load_availability_data(
         professional_id__in=professional_ids,
         start_at__lt=window_end,
         end_at__gt=window_start - timedelta(days=2),
-        appointment__status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
+        appointment__status__in=[
+            Appointment.Status.SCHEDULED,
+            Appointment.Status.CONFIRMED,
+        ],
     ).select_related("service", "appointment")
     if exclude_appointment_id is not None:
         busy_queryset = busy_queryset.exclude(appointment_id=exclude_appointment_id)
@@ -52,7 +63,9 @@ def load_availability_data(
     return links, hours, time_offs, busy_items
 
 
-def list_appointments(organization, *, date=None, professional=None, status=None, customer=None):
+def list_appointments(
+    organization, *, date=None, professional=None, status=None, customer=None
+):
     queryset = (
         Appointment.objects.filter(organization=organization)
         .select_related("customer", "created_by__user")
@@ -71,7 +84,9 @@ def list_appointments(organization, *, date=None, professional=None, status=None
         if isinstance(date, str):
             date = Date.fromisoformat(date)
         tz = ZoneInfo(organization.timezone)
-        start = timezone.make_aware(datetime.combine(date, time.min), tz).astimezone(UTC)
+        start = timezone.make_aware(datetime.combine(date, time.min), tz).astimezone(
+            UTC
+        )
         end = timezone.make_aware(
             datetime.combine(date + timedelta(days=1), time.min), tz
         ).astimezone(UTC)
@@ -92,9 +107,9 @@ def get_appointment(organization, pk):
         .prefetch_related(
             Prefetch(
                 "items",
-                queryset=AppointmentItem.objects.select_related("service", "professional").order_by(
-                    "order"
-                ),
+                queryset=AppointmentItem.objects.select_related(
+                    "service", "professional"
+                ).order_by("order"),
             )
         )
         .first()

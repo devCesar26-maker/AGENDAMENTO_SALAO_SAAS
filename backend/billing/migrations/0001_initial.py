@@ -19,7 +19,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -28,7 +31,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 (
                     "plan",
                     models.CharField(

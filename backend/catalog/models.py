@@ -141,7 +141,9 @@ class ProfessionalService(TenantModel):
     professional = models.ForeignKey(
         Professional, on_delete=models.CASCADE, related_name="service_links"
     )
-    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="service_links")
+    service = models.ForeignKey(
+        Service, on_delete=models.CASCADE, related_name="service_links"
+    )
     price_override = models.DecimalField(
         "preço override",
         max_digits=10,
@@ -161,7 +163,10 @@ class ProfessionalService(TenantModel):
         max_digits=5,
         decimal_places=2,
         default=Decimal("0.00"),
-        validators=[MinValueValidator(Decimal("0.00")), MaxValueValidator(Decimal("100.00"))],
+        validators=[
+            MinValueValidator(Decimal("0.00")),
+            MaxValueValidator(Decimal("100.00")),
+        ],
     )
 
     class Meta:

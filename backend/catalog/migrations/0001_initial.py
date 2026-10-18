@@ -12,7 +12,10 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("organizations", "0002_alter_invitation_options_alter_membership_options_and_more"),
+        (
+            "organizations",
+            "0002_alter_invitation_options_alter_membership_options_and_more",
+        ),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -23,7 +26,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -32,7 +38,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("name", models.CharField(max_length=120, verbose_name="nome")),
                 (
                     "photo",
@@ -78,7 +87,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -87,7 +99,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("name", models.CharField(max_length=120, verbose_name="nome")),
                 (
                     "description",
@@ -115,7 +130,9 @@ class Migration(migrations.Migration):
                         decimal_places=2,
                         default=Decimal("0.00"),
                         max_digits=10,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0.00"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0.00"))
+                        ],
                         verbose_name="preço",
                     ),
                 ),
@@ -151,7 +168,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -160,7 +180,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 (
                     "price_override",
                     models.DecimalField(
@@ -168,7 +191,9 @@ class Migration(migrations.Migration):
                         decimal_places=2,
                         max_digits=10,
                         null=True,
-                        validators=[django.core.validators.MinValueValidator(Decimal("0.00"))],
+                        validators=[
+                            django.core.validators.MinValueValidator(Decimal("0.00"))
+                        ],
                         verbose_name="preço override",
                     ),
                 ),
@@ -235,7 +260,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -244,7 +272,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("name", models.CharField(max_length=120, verbose_name="nome")),
                 (
                     "order",
@@ -287,7 +318,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -296,10 +330,16 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 ("start_date", models.DateField(verbose_name="início")),
                 ("end_date", models.DateField(verbose_name="fim")),
-                ("reason", models.CharField(blank=True, max_length=200, verbose_name="motivo")),
+                (
+                    "reason",
+                    models.CharField(blank=True, max_length=200, verbose_name="motivo"),
+                ),
                 (
                     "organization",
                     models.ForeignKey(
@@ -330,7 +370,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -339,7 +382,10 @@ class Migration(migrations.Migration):
                         auto_now_add=True, db_index=True, verbose_name="criado em"
                     ),
                 ),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="atualizado em")),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="atualizado em"),
+                ),
                 (
                     "weekday",
                     models.SmallIntegerField(

@@ -14,7 +14,9 @@ urlpatterns = [
         name="service-category-detail",
     ),
     path("services/", views.ServiceListCreateView.as_view(), name="service-list"),
-    path("services/<int:pk>/", views.ServiceDetailView.as_view(), name="service-detail"),
+    path(
+        "services/<int:pk>/", views.ServiceDetailView.as_view(), name="service-detail"
+    ),
     path(
         "professionals/",
         views.ProfessionalListCreateView.as_view(),

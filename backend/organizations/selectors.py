@@ -37,6 +37,10 @@ def list_pending_invitations(organization: Organization):
     """Convites pendentes e não expirados do salão."""
     return (
         Invitation.objects.select_related("organization", "invited_by")
-        .filter(organization=organization, accepted_at__isnull=True, expires_at__gt=timezone.now())
+        .filter(
+            organization=organization,
+            accepted_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        )
         .order_by("-created_at")
     )

@@ -20,7 +20,11 @@ urlpatterns = [
         name="public-appointment-create",
     ),
     path("availability/", views.AvailabilityView.as_view(), name="availability"),
-    path("appointments/", views.AppointmentListCreateView.as_view(), name="appointment-list"),
+    path(
+        "appointments/",
+        views.AppointmentListCreateView.as_view(),
+        name="appointment-list",
+    ),
     path(
         "appointments/<int:pk>/",
         views.AppointmentDetailView.as_view(),

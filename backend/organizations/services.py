@@ -55,7 +55,9 @@ def _send_invitation_email(invitation: Invitation) -> None:
         "role": invitation.get_role_display(),
         "invite_url": invite_url,
         "expires_at": timezone.localtime(invitation.expires_at),
-        "inviter": invitation.invited_by.get_full_name() if invitation.invited_by else "",
+        "inviter": (
+            invitation.invited_by.get_full_name() if invitation.invited_by else ""
+        ),
     }
     body = render_to_string("emails/organization_invitation.txt", context)
     send_mail(
@@ -68,13 +70,19 @@ def _send_invitation_email(invitation: Invitation) -> None:
 
 @transaction.atomic
 def accept_invitation(
-    *, token: str, password: str | None = None, first_name: str = "", last_name: str = ""
+    *,
+    token: str,
+    password: str | None = None,
+    first_name: str = "",
+    last_name: str = "",
 ) -> Membership:
     """
     Aceita um convite: cria o User se não existir (com senha informada) ou
     vincula o User existente, e cria o Membership com o role do convite.
     """
-    invitation = Invitation.objects.select_related("organization").filter(token=token).first()
+    invitation = (
+        Invitation.objects.select_related("organization").filter(token=token).first()
+    )
     if invitation is None or not invitation.is_valid:
         raise _invitation_api_error(None, "Convite inválido ou já utilizado.")
 
@@ -85,7 +93,8 @@ def accept_invitation(
     if user is None:
         if not password:
             raise _invitation_api_error(
-                "password", "Informe uma senha para criar sua conta e aceitar o convite."
+                "password",
+                "Informe uma senha para criar sua conta e aceitar o convite.",
             )
         user = User.objects.create_user(
             email=invitation.email,
@@ -94,7 +103,9 @@ def accept_invitation(
             last_name=last_name,
         )
 
-    if Membership.objects.filter(user=user, organization=invitation.organization).exists():
+    if Membership.objects.filter(
+        user=user, organization=invitation.organization
+    ).exists():
         raise _invitation_api_error(None, "Você já pertence a este salão.")
 
     membership = Membership.objects.create(
@@ -148,7 +159,9 @@ def validar_working_hours(value) -> None:
     Raises ValidationError do Django.
     """
     if not isinstance(value, dict):
-        raise ValidationError("Horário de funcionamento deve ser um objeto por dia da semana.")
+        raise ValidationError(
+            "Horário de funcionamento deve ser um objeto por dia da semana."
+        )
     valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
     for day, ranges in value.items():
         if day not in valid_days:
@@ -159,4 +172,6 @@ def validar_working_hours(value) -> None:
             raise ValidationError(f"Intervalo de {day} deve ser uma lista.")
         for r in ranges:
             if not (isinstance(r, (list, tuple)) and len(r) == 2):
-                raise ValidationError(f'Intervalo de {day} inválido: use ["HH:MM", "HH:MM"].')
+                raise ValidationError(
+                    f'Intervalo de {day} inválido: use ["HH:MM", "HH:MM"].'
+                )
