@@ -305,6 +305,30 @@ assinatura no Mercado Pago antes de aplicar a mudança: `authorized` ativa o
 tier contratado, `cancelled` rebaixa para FREE/CANCELED e `paused` ou `pending`
 rebaixa para FREE/PAST_DUE.
 
+### Métricas, exportação e auditoria
+
+O dashboard autenticado oferece `GET /api/v1/metrics/overview/`,
+`/api/v1/metrics/services/` e `/api/v1/metrics/professionals/`; todos aceitam
+`data_inicio` e `data_fim` (`YYYY-MM-DD`, inclusivos), com padrão no mês atual.
+OWNER/MANAGER veem a organização; PROFESSIONAL vê apenas dados vinculados ao
+seu perfil. O faturamento considera itens de agendamentos COMPLETED. Ocupação
+é minutos em horários agendados, confirmados, concluídos ou NO_SHOW divididos
+pelos minutos do horário semanal de funcionamento da organização multiplicados
+pelos profissionais ativos; cancelamentos não ocupam capacidade. A taxa de
+no-show usa agendamentos não cancelados como denominador.
+
+OWNER/MANAGER podem baixar `GET /api/v1/exports/appointments/` (filtros de
+período, status e `profissional`), `/api/v1/exports/customers/` e
+`/api/v1/exports/commissions/`. Os CSVs são transmitidos em lotes. Comissão é
+calculada pelo snapshot de preço e percentual guardado no item do agendamento,
+sem recalcular atendimentos antigos com a configuração atual.
+
+`GET /api/v1/audit-log/` é paginado e permite filtrar por `action` (ou `acao`), `data_inicio`
+e `data_fim`; acesso restrito a OWNER/MANAGER. Registra cancelamentos,
+desativação de membros, mudanças de tier e alterações de percentual de comissão.
+Webhooks de billing têm ator `null`. O contexto é allowlisted e não guarda
+payloads, dados de clientes, senhas, tokens ou informações de pagamento.
+
 ## Onde o access token mora no frontend (decisão)
 
 - **Access token**: **em memória apenas** (ex.: um `useState`/var de módulo). NUNCA
@@ -366,4 +390,6 @@ Espinha de CI: lint (ruff/black), testes (com cobertura), bandit/pip-audit,
 - [X] **Fase 3** — API de disponibilidade e agendamentos multi-serviço
 - [X] Fase 4 — agenda FullCalendar + página pública de reserva
 - [X] Fase 5 — Celery, e-mails, lembretes, lista de espera
-- [ ] Fase 6 — planos, limites e cobrança
+- [X] Fase 6 — planos, limites e cobrança
+- [X] Fase 7 — métricas, exportação CSV e auditoria
+- [ ] Fase 8 — revisão dedicada de segurança e performance

@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/v1/", include("scheduling.urls")),
     path("api/v1/", include("notifications.urls")),
     path("api/v1/", include("billing.urls")),
+    path("api/v1/", include("analytics.urls")),
 ]
 
 if settings.DEBUG and "debug_toolbar" in settings.INSTALLED_APPS:

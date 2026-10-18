@@ -401,7 +401,7 @@ def reschedule_appointment(*, organization, appointment, desired_start):
 
 
 @transaction.atomic
-def change_appointment_status(appointment, status_value):
+def change_appointment_status(appointment, status_value, *, actor=None):
     allowed = {value for value, _ in Appointment.Status.choices}
     if status_value not in allowed:
         raise ValidationError({"status": "Status de agendamento inválido."})
@@ -409,6 +409,17 @@ def change_appointment_status(appointment, status_value):
     appointment.status = status_value
     appointment.save(update_fields=["status", "updated_at"])
     if status_value == Appointment.Status.CANCELED and previous_status != status_value:
+        from analytics.models import AuditLog
+        from analytics.services import record_audit
+
+        record_audit(
+            organization=appointment.organization,
+            action=AuditLog.Action.APPOINTMENT_CANCELED,
+            actor=actor,
+            object_type="appointment",
+            object_id=appointment.pk,
+            context={"status": status_value},
+        )
         from notifications.models import NotificationEvent
         from notifications.services import queue_appointment_notification
 

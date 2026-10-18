@@ -163,6 +163,7 @@ def _apply_notification(payload):
         organization=organization,
         defaults={"plan": Plan.objects.get(tier=PlanTier.FREE)},
     )
+    previous_tier = subscription.plan.tier
     if status_value == "authorized":
         subscription.plan = plan
         subscription.status = SubscriptionStatus.ACTIVE
@@ -184,6 +185,17 @@ def _apply_notification(payload):
         datetime.fromisoformat(end.replace("Z", "+00:00")) if end else None
     )
     subscription.save()
+    if previous_tier != subscription.plan.tier:
+        from analytics.models import AuditLog
+        from analytics.services import record_audit
+
+        record_audit(
+            organization=organization,
+            action=AuditLog.Action.PLAN_CHANGED,
+            object_type="subscription",
+            object_id=subscription.pk,
+            context={"from_tier": previous_tier, "to_tier": subscription.plan.tier},
+        )
     return {"received": True}
 
 

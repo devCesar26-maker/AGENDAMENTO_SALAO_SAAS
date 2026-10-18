@@ -110,8 +110,13 @@ def accept_invitation(
     return membership
 
 
+@transaction.atomic
 def update_member(
-    membership: Membership, *, role: str | None = None, is_active: bool | None = None
+    membership: Membership,
+    *,
+    role: str | None = None,
+    is_active: bool | None = None,
+    actor=None,
 ) -> Membership:
     """
     Altera role e/ou status do membro. O salão precisa manter pelo menos um
@@ -138,11 +143,23 @@ def update_member(
                 code="last_owner",
             )
 
+    was_active = membership.is_active
     if role is not None:
         membership.role = role
     if is_active is not None:
         membership.is_active = is_active
     membership.save(update_fields=["role", "is_active", "updated_at"])
+    if was_active and not membership.is_active:
+        from analytics.models import AuditLog
+        from analytics.services import record_audit
+
+        record_audit(
+            organization=membership.organization,
+            action=AuditLog.Action.MEMBER_REMOVED,
+            actor=actor,
+            object_type="membership",
+            object_id=membership.pk,
+        )
     return membership
 
 

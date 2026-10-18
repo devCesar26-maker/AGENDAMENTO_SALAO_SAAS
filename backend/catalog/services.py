@@ -56,3 +56,24 @@ def link_service_to_professional(
 def unlink_service_to_professional(link: ProfessionalService) -> None:
     """Desvincula (DELETE). Vazio de regra hoje; ponto de extensão futuro."""
     link.delete()
+
+
+@transaction.atomic
+def update_professional_service(link, *, validated_data, actor=None):
+    old_commission = link.commission_percentage
+    for field, value in validated_data.items():
+        setattr(link, field, value)
+    link.save()
+    if "commission_percentage" in validated_data and old_commission != link.commission_percentage:
+        from analytics.models import AuditLog
+        from analytics.services import record_audit
+
+        record_audit(
+            organization=link.organization,
+            action=AuditLog.Action.COMMISSION_CHANGED,
+            actor=actor,
+            object_type="professional_service",
+            object_id=link.pk,
+            context={"commission_percentage": link.commission_percentage},
+        )
+    return link

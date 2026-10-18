@@ -263,6 +263,13 @@ class ProfessionalServiceDetailView(_TenantViewSetBase, generics.RetrieveUpdateD
             "service", "service__category", "professional"
         )
 
+    def perform_update(self, serializer):
+        services.update_professional_service(
+            serializer.instance,
+            validated_data=serializer.validated_data,
+            actor=resolve_membership(self.request)[1],
+        )
+
     def destroy(self, request, *args, **kwargs):
         services.unlink_service_to_professional(self.get_object())
         return Response(status=status.HTTP_204_NO_CONTENT)

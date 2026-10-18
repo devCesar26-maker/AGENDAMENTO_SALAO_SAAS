@@ -158,4 +158,5 @@ class MemberDetailView(OrganizationSlugMixin, generics.RetrieveUpdateAPIView):
             self.get_object(),
             role=serializer.validated_data.get("role"),
             is_active=serializer.validated_data.get("is_active"),
+            actor=selectors.get_active_membership(self.request.user, self.get_organization()),
         )

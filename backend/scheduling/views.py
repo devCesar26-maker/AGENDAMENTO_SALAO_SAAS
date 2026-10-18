@@ -194,7 +194,9 @@ class AppointmentStatusView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         appointment = services.change_appointment_status(
-            appointment, serializer.validated_data["status"]
+            appointment,
+            serializer.validated_data["status"],
+            actor=resolve_membership(request)[1],
         )
         return Response(
             AppointmentSerializer(
@@ -238,7 +240,11 @@ class AppointmentCancelView(AppointmentStatusView):
 
     def post(self, request, *args, **kwargs):
         appointment = self.get_object()
-        appointment = services.change_appointment_status(appointment, Appointment.Status.CANCELED)
+        appointment = services.change_appointment_status(
+            appointment,
+            Appointment.Status.CANCELED,
+            actor=resolve_membership(request)[1],
+        )
         return Response(
             AppointmentSerializer(
                 selectors.get_appointment(request.organization, appointment.pk)
