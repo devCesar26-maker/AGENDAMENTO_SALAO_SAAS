@@ -88,9 +88,7 @@ def _mp_request(url, *, method="GET", payload=None):
     headers = {"Authorization": f"Bearer {token}"}
     try:
         if method == "POST":
-            response = requests.post(
-                url, json=payload, headers=headers, timeout=10, verify=True
-            )
+            response = requests.post(url, json=payload, headers=headers, timeout=10, verify=True)
         else:
             response = requests.get(url, headers=headers, timeout=10, verify=True)
         response.raise_for_status()
@@ -119,9 +117,7 @@ def create_checkout(*, organization, tier):
         .first(),
         "status": "pending",
     }
-    result = _mp_request(
-        "https://api.mercadopago.com/preapproval", method="POST", payload=payload
-    )
+    result = _mp_request("https://api.mercadopago.com/preapproval", method="POST", payload=payload)
     checkout_url = result.get("sandbox_init_point") or result.get("init_point")
     if not result.get("id") or not checkout_url:
         raise PaymentProviderError()
@@ -182,9 +178,7 @@ def _apply_notification(payload):
     start = preapproval.get("date_created")
     end = preapproval.get("next_payment_date")
     subscription.current_period_start = (
-        datetime.fromisoformat(start.replace("Z", "+00:00"))
-        if start
-        else timezone.now()
+        datetime.fromisoformat(start.replace("Z", "+00:00")) if start else timezone.now()
     )
     subscription.current_period_end = (
         datetime.fromisoformat(end.replace("Z", "+00:00")) if end else None
@@ -208,7 +202,5 @@ def process_webhook(payload):
             ttl=timedelta(days=3650),
         )
     except IdempotencyConflict as error:
-        raise ValidationError(
-            "ID de notificação reutilizado com conteúdo diferente."
-        ) from error
+        raise ValidationError("ID de notificação reutilizado com conteúdo diferente.") from error
     return result

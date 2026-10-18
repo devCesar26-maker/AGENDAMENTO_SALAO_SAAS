@@ -49,9 +49,7 @@ def exception_handler(exc, context):
         # prefira o code do detail (ex.: "last_owner", "category_in_use").
         detail_code = getattr(getattr(exc, "detail", None), "code", None)
         code = (
-            detail_code
-            if isinstance(detail_code, str)
-            else getattr(exc, "default_code", "error")
+            detail_code if isinstance(detail_code, str) else getattr(exc, "default_code", "error")
         )
     detail = getattr(exc, "detail", None)
     if isinstance(detail, dict) and "detail" in detail:
@@ -75,9 +73,7 @@ def exception_handler(exc, context):
             payload["error"]["detail"] = _normalize_detail(response.data["detail"])
 
     if code == "throttled" and getattr(exc, "wait", None):
-        payload["error"][
-            "detail"
-        ] = f"Muitas tentativas. Tente novamente em {int(exc.wait)}s."
+        payload["error"]["detail"] = f"Muitas tentativas. Tente novamente em {int(exc.wait)}s."
         response["Retry-After"] = str(int(exc.wait))
 
     response.data = payload

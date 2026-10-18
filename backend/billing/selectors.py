@@ -10,11 +10,7 @@ def list_plans():
 
 
 def get_subscription(organization):
-    return (
-        Subscription.objects.select_related("plan")
-        .filter(organization=organization)
-        .first()
-    )
+    return Subscription.objects.select_related("plan").filter(organization=organization).first()
 
 
 def get_monthly_usage(organization, *, now=None):

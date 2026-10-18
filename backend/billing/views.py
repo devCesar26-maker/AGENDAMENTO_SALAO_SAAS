@@ -89,14 +89,10 @@ class MercadoPagoWebhookView(APIView):
             request_id=request.headers.get("x-request-id", ""),
             secret=settings.MP_WEBHOOK_SECRET,
         ):
-            return Response(
-                {"detail": "Assinatura inválida."}, status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"detail": "Assinatura inválida."}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             payload = json.loads(request.body)
             result = services.process_webhook(payload)
         except (json.JSONDecodeError, ValueError):
-            return Response(
-                {"detail": "Payload inválido."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Payload inválido."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)

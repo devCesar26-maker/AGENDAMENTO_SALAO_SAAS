@@ -17,9 +17,7 @@ from catalog.models import (
 
 
 def list_service_categories(organization):
-    return ServiceCategory.objects.filter(organization=organization).order_by(
-        "order", "name"
-    )
+    return ServiceCategory.objects.filter(organization=organization).order_by("order", "name")
 
 
 def get_service_category(organization, pk) -> ServiceCategory | None:
@@ -36,9 +34,7 @@ def list_services(organization):
 
 def get_service(organization, pk) -> Service | None:
     return (
-        Service.objects.select_related("category")
-        .filter(organization=organization, pk=pk)
-        .first()
+        Service.objects.select_related("category").filter(organization=organization, pk=pk).first()
     )
 
 
@@ -49,9 +45,7 @@ def list_professionals(organization):
         .prefetch_related(
             Prefetch(
                 "service_links",
-                queryset=ProfessionalService.objects.select_related(
-                    "service", "service__category"
-                ),
+                queryset=ProfessionalService.objects.select_related("service", "service__category"),
             )
         )
         .order_by("name")
@@ -60,9 +54,7 @@ def list_professionals(organization):
 
 def get_professional(organization, pk) -> Professional | None:
     return (
-        Professional.objects.select_related("user")
-        .filter(organization=organization, pk=pk)
-        .first()
+        Professional.objects.select_related("user").filter(organization=organization, pk=pk).first()
     )
 
 
@@ -78,9 +70,7 @@ def list_professional_services(professional):
 
 def get_professional_service(organization, pk) -> ProfessionalService | None:
     return (
-        ProfessionalService.objects.select_related(
-            "service", "service__category", "professional"
-        )
+        ProfessionalService.objects.select_related("service", "service__category", "professional")
         .filter(organization=organization, pk=pk)
         .first()
     )

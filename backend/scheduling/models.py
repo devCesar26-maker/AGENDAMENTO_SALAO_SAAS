@@ -38,26 +38,20 @@ class Appointment(TenantModel):
         related_name="appointments_created",
     )
     notes = models.TextField("observações", blank=True)
-    reminder_sent_at = models.DateTimeField(
-        "lembrete enviado em", null=True, blank=True
-    )
+    reminder_sent_at = models.DateTimeField("lembrete enviado em", null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
 
 
 class AppointmentItem(TenantModel):
-    appointment = models.ForeignKey(
-        Appointment, on_delete=models.CASCADE, related_name="items"
-    )
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="items")
     service = models.ForeignKey("catalog.Service", on_delete=models.PROTECT)
     professional = models.ForeignKey("catalog.Professional", on_delete=models.PROTECT)
     order = models.PositiveSmallIntegerField("ordem")
     start_at = models.DateTimeField("início", db_index=True)
     end_at = models.DateTimeField("fim")
-    buffer_minutes = models.PositiveSmallIntegerField(
-        "buffer no agendamento", default=0
-    )
+    buffer_minutes = models.PositiveSmallIntegerField("buffer no agendamento", default=0)
     price = models.DecimalField("preço no agendamento", max_digits=10, decimal_places=2)
     commission_percentage = models.DecimalField(
         "comissão no agendamento", max_digits=5, decimal_places=2, default=0

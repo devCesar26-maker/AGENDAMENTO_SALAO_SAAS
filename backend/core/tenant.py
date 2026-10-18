@@ -121,9 +121,7 @@ class TenantModelViewSet:
         return qs.filter(organization=org)
 
     def perform_create(self, serializer):
-        org = getattr(self.request, "organization", None) or resolve_tenant(
-            self.request
-        )
+        org = getattr(self.request, "organization", None) or resolve_tenant(self.request)
         serializer.save(organization=org)
 
 

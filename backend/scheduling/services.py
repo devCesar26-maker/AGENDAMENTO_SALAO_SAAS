@@ -29,9 +29,7 @@ def _valid_localizations(naive: datetime, tz: ZoneInfo) -> list[datetime]:
     for fold in (0, 1):
         aware = naive.replace(tzinfo=tz, fold=fold)
         roundtrip = aware.astimezone(UTC).astimezone(tz).replace(tzinfo=None)
-        if roundtrip == naive and all(
-            item.utcoffset() != aware.utcoffset() for item in values
-        ):
+        if roundtrip == naive and all(item.utcoffset() != aware.utcoffset() for item in values):
             values.append(aware)
     return values
 
@@ -47,13 +45,9 @@ def _local_intervals(hours_by_day, day: Date, tz: ZoneInfo, *, intervals):
     result = []
     for start_value, end_value in values:
         start_time = (
-            time.fromisoformat(start_value)
-            if isinstance(start_value, str)
-            else start_value
+            time.fromisoformat(start_value) if isinstance(start_value, str) else start_value
         )
-        end_time = (
-            time.fromisoformat(end_value) if isinstance(end_value, str) else end_value
-        )
+        end_time = time.fromisoformat(end_value) if isinstance(end_value, str) else end_value
         start_naive = datetime.combine(day, start_time)
         end_day = day + timedelta(days=1) if end_time <= start_time else day
         end_naive = datetime.combine(end_day, end_time)
@@ -162,9 +156,7 @@ def calcular_slots_disponiveis(
             if off.professional_id != professional_id:
                 continue
             local_day = start.astimezone(tz).date()
-            last_day = (
-                (occupied_until - timedelta(microseconds=1)).astimezone(tz).date()
-            )
+            last_day = (occupied_until - timedelta(microseconds=1)).astimezone(tz).date()
             if off.start_date <= last_day and off.end_date >= local_day:
                 return False
         for existing in busy_items:
@@ -199,15 +191,11 @@ def calcular_slots_disponiveis(
                 "end_at": service_end,
                 "buffer_minutes": service.buffer_minutes,
                 "price": (
-                    link.price_override
-                    if link.price_override is not None
-                    else service.price
+                    link.price_override if link.price_override is not None else service.price
                 ),
                 "commission_percentage": link.commission_percentage,
             }
-            result = assign_sequence(
-                index + 1, occupied_until, opening_end, [*proposed, snapshot]
-            )
+            result = assign_sequence(index + 1, occupied_until, opening_end, [*proposed, snapshot])
             if result is not None:
                 return result
         return None
@@ -239,9 +227,7 @@ def _validate_booking_data(organization, customer, items, membership):
             item["service"].organization_id != organization.id
             or item["professional"].organization_id != organization.id
         ):
-            raise ValidationError(
-                "Serviço ou profissional não pertence a esta organização."
-            )
+            raise ValidationError("Serviço ou profissional não pertence a esta organização.")
         if not item["service"].is_active or not item["professional"].is_active:
             raise ValidationError("Serviço e profissional precisam estar ativos.")
         pairs.add((item["service"].pk, item["professional"].pk))
@@ -301,9 +287,7 @@ def create_appointment(
     services = [item["service"] for item in ordered_items]
     professionals = [item["professional"] for item in ordered_items]
     local_date = desired_start.astimezone(ZoneInfo(organization.timezone)).date()
-    slots = calcular_slots_disponiveis(
-        organization, services, professionals, local_date
-    )
+    slots = calcular_slots_disponiveis(organization, services, professionals, local_date)
     selected = next((slot for slot in slots if slot["start_at"] == desired_start), None)
     if selected is None:
         raise SlotUnavailable()
@@ -345,9 +329,7 @@ def reschedule_appointment(*, organization, appointment, desired_start):
     if timezone.is_naive(desired_start):
         raise ValidationError({"start_at": "Informe um horário com fuso horário."})
     desired_start = desired_start.astimezone(UTC)
-    current_appointment = Appointment.objects.get(
-        organization=organization, pk=appointment.pk
-    )
+    current_appointment = Appointment.objects.get(organization=organization, pk=appointment.pk)
     current_professional_ids = list(
         current_appointment.items.order_by("professional_id")
         .values_list("professional_id", flat=True)
@@ -397,9 +379,7 @@ def reschedule_appointment(*, organization, appointment, desired_start):
         desired_start.astimezone(ZoneInfo(organization.timezone)).date(),
         exclude_appointment_id=locked_appointment.pk,
     )
-    selected = next(
-        (slot for slot in proposed if slot["start_at"] == desired_start), None
-    )
+    selected = next((slot for slot in proposed if slot["start_at"] == desired_start), None)
     if selected is None:
         raise SlotUnavailable()
     for existing, snapshot in zip(items, selected["items"], strict=True):
@@ -433,7 +413,5 @@ def change_appointment_status(appointment, status_value):
         from notifications.services import queue_appointment_notification
 
         queue_appointment_notification(appointment, NotificationEvent.Kind.CANCELLATION)
-        queue_appointment_notification(
-            appointment, NotificationEvent.Kind.WAITLIST_OPENING
-        )
+        queue_appointment_notification(appointment, NotificationEvent.Kind.WAITLIST_OPENING)
     return appointment

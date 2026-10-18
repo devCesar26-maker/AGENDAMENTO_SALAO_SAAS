@@ -17,9 +17,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # E-mail capturado em memória (django.core.mail.outbox).
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
-PASSWORD_HASHERS = [
-    "django.contrib.auth.hashers.MD5PasswordHasher"
-]  # rapidez apenas em teste
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]  # rapidez apenas em teste
 
 # Throttle desligado nos testes (cada teste tem sua asserção específica).
 REST_FRAMEWORK = {**REST_FRAMEWORK, "DEFAULT_THROTTLE_CLASSES": ()}  # noqa: F405

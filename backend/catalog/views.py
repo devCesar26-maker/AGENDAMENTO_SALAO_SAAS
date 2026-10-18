@@ -54,12 +54,8 @@ class _NestedProfessionalMixin:
     """Resolve o `Professional` da URL escopado ao tenant (404 caso contrário)."""
 
     def get_professional(self) -> Professional:
-        organization = getattr(self.request, "organization", None) or resolve_tenant(
-            self.request
-        )
-        professional = selectors.get_professional(
-            organization, self.kwargs["professional_id"]
-        )
+        organization = getattr(self.request, "organization", None) or resolve_tenant(self.request)
+        professional = selectors.get_professional(organization, self.kwargs["professional_id"])
         if professional is None:
             from django.http import Http404
 
@@ -93,9 +89,7 @@ class ServiceCategoryListCreateView(_TenantViewSetBase, generics.ListCreateAPIVi
         return selectors.list_service_categories(organization)
 
 
-class ServiceCategoryDetailView(
-    _TenantViewSetBase, generics.RetrieveUpdateDestroyAPIView
-):
+class ServiceCategoryDetailView(_TenantViewSetBase, generics.RetrieveUpdateDestroyAPIView):
     """DETALHE/PATCH/DELETE de categoria — OWNER+MANAGER escrevem."""
 
     serializer_class = ServiceCategorySerializer
@@ -237,9 +231,7 @@ class ProfessionalServiceListCreateView(
             service=serializer.validated_data["service"],
             price_override=serializer.validated_data.get("price_override"),
             duration_override=serializer.validated_data.get("duration_override"),
-            commission_percentage=serializer.validated_data.get(
-                "commission_percentage"
-            ),
+            commission_percentage=serializer.validated_data.get("commission_percentage"),
         )
         return Response(
             ServiceLinkReadSerializer(link, context=self.get_serializer_context()).data,
@@ -247,9 +239,7 @@ class ProfessionalServiceListCreateView(
         )
 
 
-class ProfessionalServiceDetailView(
-    _TenantViewSetBase, generics.RetrieveUpdateDestroyAPIView
-):
+class ProfessionalServiceDetailView(_TenantViewSetBase, generics.RetrieveUpdateDestroyAPIView):
     """
     PATCH/DELETE de um vínculo (ajuste de overrides/comissão ou desvinculação).
     OWNER+MANAGER em qualquer um; PROFESSIONAL só nos próprios registros (403).
@@ -269,9 +259,9 @@ class ProfessionalServiceDetailView(
 
     def get_queryset(self):
         organization = self.request.organization or resolve_tenant(self.request)
-        return ProfessionalService.objects.filter(
-            organization=organization
-        ).select_related("service", "service__category", "professional")
+        return ProfessionalService.objects.filter(organization=organization).select_related(
+            "service", "service__category", "professional"
+        )
 
     def destroy(self, request, *args, **kwargs):
         services.unlink_service_to_professional(self.get_object())

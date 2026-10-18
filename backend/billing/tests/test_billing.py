@@ -46,28 +46,20 @@ def test_free_professional_limit_blocks_creation_without_deleting_existing(
     auth_client, organization
 ):
     set_tier(organization, PlanTier.FREE)
-    response = auth_client.post(
-        reverse("professional-list"), {"name": "Primeira"}, format="json"
-    )
+    response = auth_client.post(reverse("professional-list"), {"name": "Primeira"}, format="json")
     assert response.status_code == status.HTTP_201_CREATED
-    blocked = auth_client.post(
-        reverse("professional-list"), {"name": "Segunda"}, format="json"
-    )
+    blocked = auth_client.post(reverse("professional-list"), {"name": "Segunda"}, format="json")
     assert blocked.status_code == 402
     assert int(blocked.json()["error"]["limit"]) == 1
     assert int(blocked.json()["error"]["usage"]) == 1
 
 
-def test_downgrade_preserves_professionals_and_blocks_new_ones(
-    auth_client, organization
-):
+def test_downgrade_preserves_professionals_and_blocks_new_ones(auth_client, organization):
     set_tier(organization, PlanTier.PLUS)
     first = ProfessionalFactory(organization=organization)
     ProfessionalFactory(organization=organization)
     set_tier(organization, PlanTier.FREE)
-    response = auth_client.post(
-        reverse("professional-list"), {"name": "Outra"}, format="json"
-    )
+    response = auth_client.post(reverse("professional-list"), {"name": "Outra"}, format="json")
     assert response.status_code == 402
     assert first.__class__.objects.filter(organization=organization).count() == 2
 
@@ -106,9 +98,7 @@ def test_canceled_appointments_restore_monthly_quota(organization, auth_client):
     membership = MembershipFactory(organization=organization, role="OWNER")
     professional = ProfessionalFactory(organization=organization)
     category = ServiceCategoryFactory(organization=organization)
-    service = ServiceFactory(
-        organization=organization, category=category, duration_minutes=30
-    )
+    service = ServiceFactory(organization=organization, category=category, duration_minutes=30)
     ProfessionalServiceFactory(
         organization=organization, professional=professional, service=service
     )
@@ -120,9 +110,7 @@ def test_canceled_appointments_restore_monthly_quota(organization, auth_client):
         end_time=time(18),
     )
     customer = CustomerFactory(organization=organization)
-    desired_start = datetime.combine(
-        tomorrow, time(10), tzinfo=ZoneInfo(organization.timezone)
-    )
+    desired_start = datetime.combine(tomorrow, time(10), tzinfo=ZoneInfo(organization.timezone))
     created = create_appointment(
         organization=organization,
         customer=customer,
@@ -150,9 +138,7 @@ def test_canceled_appointments_restore_monthly_quota(organization, auth_client):
         .order_by("pk")
         .values_list("pk", flat=True)[:10]
     )
-    Appointment.objects.filter(pk__in=canceled_ids).update(
-        status=Appointment.Status.CANCELED
-    )
+    Appointment.objects.filter(pk__in=canceled_ids).update(status=Appointment.Status.CANCELED)
     usage = auth_client.get(reverse("billing-usage"))
     assert usage.status_code == status.HTTP_200_OK
     assert usage.json()["appointments"]["used"] == 40
@@ -165,9 +151,7 @@ def test_canceled_appointments_restore_monthly_quota(organization, auth_client):
         membership=membership,
     )
     assert next_appointment.pk
-    assert (
-        auth_client.get(reverse("billing-usage")).json()["appointments"]["used"] == 41
-    )
+    assert auth_client.get(reverse("billing-usage")).json()["appointments"]["used"] == 41
 
 
 def test_appointment_monthly_limit_rejects_at_limit(organization):

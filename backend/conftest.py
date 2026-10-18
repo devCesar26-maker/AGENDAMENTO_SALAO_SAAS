@@ -30,9 +30,7 @@ def organization():
     from billing.models import Plan, PlanTier, Subscription
 
     org = OrganizationFactory()
-    Subscription.objects.filter(organization=org).update(
-        plan=Plan.objects.get(tier=PlanTier.PLUS)
-    )
+    Subscription.objects.filter(organization=org).update(plan=Plan.objects.get(tier=PlanTier.PLUS))
     owner = UserFactory()
     MembershipFactory(organization=org, user=owner, role="OWNER")
     org._owner = owner

@@ -44,9 +44,7 @@ class TenantScopedQuerySet(models.QuerySet):
 
     def for_user(self, user):
         """Registros das organizações em que o usuário tem membership ativa."""
-        org_ids = user.memberships.filter(is_active=True).values_list(
-            "organization_id", flat=True
-        )
+        org_ids = user.memberships.filter(is_active=True).values_list("organization_id", flat=True)
         return self.filter(organization_id__in=org_ids)
 
 
@@ -92,19 +90,13 @@ class IdempotencyKey(models.Model):
     )
     context = models.CharField(max_length=80)
     request_fingerprint = models.CharField(max_length=64)
-    state = models.CharField(
-        max_length=12, choices=State.choices, default=State.PROCESSING
-    )
+    state = models.CharField(max_length=12, choices=State.choices, default=State.PROCESSING)
     result = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     expires_at = models.DateTimeField(default=default_idempotency_expiry, db_index=True)
 
     class Meta:
-        indexes = [
-            models.Index(
-                fields=("context", "expires_at"), name="idempotency_expiry_idx"
-            )
-        ]
+        indexes = [models.Index(fields=("context", "expires_at"), name="idempotency_expiry_idx")]
 
     def __str__(self):
         return f"{self.context}:{self.key}"

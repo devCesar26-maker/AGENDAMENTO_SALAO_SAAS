@@ -32,9 +32,7 @@ WEEKDAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 def make_schedule(organization, *, email="cliente@example.com"):
     desired_date = timezone.localdate() + timedelta(days=7)
     organization.timezone = "America/Sao_Paulo"
-    organization.working_hours = {
-        WEEKDAY_KEYS[desired_date.weekday()]: [["09:00", "18:00"]]
-    }
+    organization.working_hours = {WEEKDAY_KEYS[desired_date.weekday()]: [["09:00", "18:00"]]}
     organization.save(update_fields=["timezone", "working_hours"])
     professional = ProfessionalFactory(organization=organization, name="Bia")
     category = ServiceCategoryFactory(organization=organization)
@@ -56,15 +54,11 @@ def make_schedule(organization, *, email="cliente@example.com"):
         end_time=time(18, 0),
     )
     customer = CustomerFactory(organization=organization, email=email)
-    start_at = datetime.combine(
-        desired_date, time(10), tzinfo=ZoneInfo(organization.timezone)
-    )
+    start_at = datetime.combine(desired_date, time(10), tzinfo=ZoneInfo(organization.timezone))
     return desired_date, service, professional, customer, start_at
 
 
-def create_raw_appointment(
-    organization, service, professional, customer, start_at, *, status=None
-):
+def create_raw_appointment(organization, service, professional, customer, start_at, *, status=None):
     appointment = Appointment.objects.create(
         organization=organization,
         customer=customer,
@@ -150,9 +144,7 @@ def test_outbox_reagenda_evento_apos_falha_temporaria_de_smtp(organization):
         appointment=appointment, kind=NotificationEvent.Kind.CONFIRMATION
     )
 
-    with patch(
-        "notifications.tasks.send_mail", side_effect=OSError("SMTP indisponível")
-    ):
+    with patch("notifications.tasks.send_mail", side_effect=OSError("SMTP indisponível")):
         assert dispatch_notification_outbox.run() == 0
 
     event.refresh_from_db()
@@ -168,9 +160,7 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
 ):
     _, service, professional, _, _ = make_schedule(organization)
     eligible = CustomerFactory(organization=organization, email="lembrete@example.com")
-    confirmed = CustomerFactory(
-        organization=organization, email="confirmado@example.com"
-    )
+    confirmed = CustomerFactory(organization=organization, email="confirmado@example.com")
     outside = CustomerFactory(organization=organization, email="fora@example.com")
     canceled = CustomerFactory(organization=organization, email="cancelado@example.com")
     already_sent = CustomerFactory(organization=organization, email="jafoi@example.com")
@@ -190,9 +180,7 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
         now + timedelta(hours=24),
         status=Appointment.Status.CONFIRMED,
     )
-    create_raw_appointment(
-        organization, service, professional, outside, now + timedelta(hours=25)
-    )
+    create_raw_appointment(organization, service, professional, outside, now + timedelta(hours=25))
     create_raw_appointment(
         organization,
         service,
@@ -229,16 +217,10 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
 
 @pytest.mark.django_db
 def test_cancelamento_persiste_eventos_e_avisa_entradas_compativeis(organization):
-    desired_date, service, professional, customer, start_at = make_schedule(
-        organization
-    )
-    appointment = create_raw_appointment(
-        organization, service, professional, customer, start_at
-    )
+    desired_date, service, professional, customer, start_at = make_schedule(organization)
+    appointment = create_raw_appointment(organization, service, professional, customer, start_at)
     other_service = ServiceFactory(organization=organization)
-    other_professional = ProfessionalFactory(
-        organization=organization, name="Outra pro"
-    )
+    other_professional = ProfessionalFactory(organization=organization, name="Outra pro")
     compatible = WaitlistEntry.objects.create(
         organization=organization,
         customer=CustomerFactory(organization=organization, email="espera@example.com"),
@@ -248,17 +230,13 @@ def test_cancelamento_persiste_eventos_e_avisa_entradas_compativeis(organization
     )
     wrong_service = WaitlistEntry.objects.create(
         organization=organization,
-        customer=CustomerFactory(
-            organization=organization, email="outro-servico@example.com"
-        ),
+        customer=CustomerFactory(organization=organization, email="outro-servico@example.com"),
         service=other_service,
         desired_date=desired_date,
     )
     wrong_professional = WaitlistEntry.objects.create(
         organization=organization,
-        customer=CustomerFactory(
-            organization=organization, email="outra-pro@example.com"
-        ),
+        customer=CustomerFactory(organization=organization, email="outra-pro@example.com"),
         service=service,
         professional=other_professional,
         desired_date=desired_date,
@@ -307,9 +285,7 @@ def test_lista_de_espera_autenticada_isola_tenant_e_exige_manager(
     assert response.json()["results"][0]["id"] == entry.pk
     assert other_entry.pk not in {row["id"] for row in response.json()["results"]}
     assert (
-        manager_client.delete(
-            reverse("waitlist-delete", kwargs={"pk": other_entry.pk})
-        ).status_code
+        manager_client.delete(reverse("waitlist-delete", kwargs={"pk": other_entry.pk})).status_code
         == 404
     )
 
@@ -360,9 +336,7 @@ def test_lista_publica_cria_cliente_e_escopa_servico_ao_tenant(
 
 
 @pytest.mark.django_db
-def test_lista_publica_nao_altera_identidade_de_cliente_existente(
-    api_client, organization
-):
+def test_lista_publica_nao_altera_identidade_de_cliente_existente(api_client, organization):
     desired_date, service, professional, _, _ = make_schedule(organization)
     customer = CustomerFactory(
         organization=organization,

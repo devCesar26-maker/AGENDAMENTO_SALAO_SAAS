@@ -45,21 +45,15 @@ class Subscription(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="subscription",
     )
-    plan = models.ForeignKey(
-        Plan, on_delete=models.PROTECT, related_name="subscriptions"
-    )
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="subscriptions")
     status = models.CharField(
         max_length=12,
         choices=SubscriptionStatus.choices,
         default=SubscriptionStatus.ACTIVE,
     )
-    mercadopago_subscription_id = models.CharField(
-        max_length=120, blank=True, default=""
-    )
+    mercadopago_subscription_id = models.CharField(max_length=120, blank=True, default="")
     current_period_start = models.DateTimeField(null=True, blank=True)
-    current_period_end = models.DateTimeField(
-        "fim do período atual", null=True, blank=True
-    )
+    current_period_end = models.DateTimeField("fim do período atual", null=True, blank=True)
 
     class Meta:
         verbose_name = "assinatura"

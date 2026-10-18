@@ -19,9 +19,7 @@ def detail_url(pk):
 
 class TestCriarCategoria:
     def test_owner_cria_categoria(self, auth_client, organization):
-        response = auth_client.post(
-            list_url(), {"name": "Coloração", "order": 2}, format="json"
-        )
+        response = auth_client.post(list_url(), {"name": "Coloração", "order": 2}, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["name"] == "Coloração"
         categoria = organization.catalog_servicecategory_set.get()
@@ -72,18 +70,14 @@ class TestListarCategorias:
 class TestEditarExcluirCategoria:
     def test_owner_edita(self, auth_client, organization):
         categoria = ServiceCategoryFactory(organization=organization, name="Antigo")
-        response = auth_client.patch(
-            detail_url(categoria.pk), {"name": "Novo"}, format="json"
-        )
+        response = auth_client.patch(detail_url(categoria.pk), {"name": "Novo"}, format="json")
         assert response.status_code == status.HTTP_200_OK
         categoria.refresh_from_db()
         assert categoria.name == "Novo"
 
     def test_professional_nao_edita(self, professional_client, organization):
         categoria = ServiceCategoryFactory(organization=organization)
-        response = professional_client.patch(
-            detail_url(categoria.pk), {"name": "X"}, format="json"
-        )
+        response = professional_client.patch(detail_url(categoria.pk), {"name": "X"}, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_excluir_categoria_com_servico_rejeitado(self, auth_client, organization):
@@ -96,6 +90,5 @@ class TestEditarExcluirCategoria:
     def test_excluir_categoria_sem_servico_funciona(self, auth_client, organization):
         categoria = ServiceCategoryFactory(organization=organization)
         assert (
-            auth_client.delete(detail_url(categoria.pk)).status_code
-            == status.HTTP_204_NO_CONTENT
+            auth_client.delete(detail_url(categoria.pk)).status_code == status.HTTP_204_NO_CONTENT
         )

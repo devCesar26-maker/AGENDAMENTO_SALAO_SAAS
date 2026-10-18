@@ -18,9 +18,7 @@ class AvailabilityQuerySerializer(serializers.Serializer):
 
     def validate_services(self, value):
         if len(value) > 64:
-            raise serializers.ValidationError(
-                "Informe no máximo cinco serviços por reserva."
-            )
+            raise serializers.ValidationError("Informe no máximo cinco serviços por reserva.")
         try:
             ids = [int(pk) for pk in value.split(",")]
         except ValueError as exc:
@@ -28,9 +26,7 @@ class AvailabilityQuerySerializer(serializers.Serializer):
                 "Use uma lista de IDs separados por vírgula."
             ) from exc
         if not ids or any(pk < 1 for pk in ids) or len(ids) != len(set(ids)):
-            raise serializers.ValidationError(
-                "Informe IDs de serviços válidos e sem repetição."
-            )
+            raise serializers.ValidationError("Informe IDs de serviços válidos e sem repetição.")
         if len(ids) > self.MAX_SERVICES:
             raise serializers.ValidationError(
                 f"Escolha no máximo {self.MAX_SERVICES} serviços por reserva."
@@ -43,9 +39,7 @@ class AvailabilityQuerySerializer(serializers.Serializer):
         try:
             pk = int(value)
         except ValueError as exc:
-            raise serializers.ValidationError(
-                "Informe um ID de profissional ou 'any'."
-            ) from exc
+            raise serializers.ValidationError("Informe um ID de profissional ou 'any'.") from exc
         if pk < 1:
             raise serializers.ValidationError("ID de profissional inválido.")
         return pk
@@ -57,9 +51,7 @@ class AvailabilityItemResponseSerializer(serializers.Serializer):
     start_at = serializers.DateTimeField()
     end_at = serializers.DateTimeField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
-    commission_percentage = serializers.DecimalField(
-        max_digits=5, decimal_places=2, required=False
-    )
+    commission_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, required=False)
 
 
 class AvailabilitySlotResponseSerializer(serializers.Serializer):
@@ -75,9 +67,7 @@ class AvailabilityResponseSerializer(serializers.Serializer):
 
 class AppointmentItemInputSerializer(serializers.Serializer):
     service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.all())
-    professional = serializers.PrimaryKeyRelatedField(
-        queryset=Professional.objects.all()
-    )
+    professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all())
     order = serializers.IntegerField(min_value=0)
 
 
@@ -91,11 +81,9 @@ class AppointmentCreateSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
         organization = self.context.get("organization")
         if organization is not None:
-            self.fields["customer"].queryset = Customer.objects.filter(
+            self.fields["customer"].queryset = Customer.objects.filter(organization=organization)
+            self.fields["items"].child.fields["service"].queryset = Service.objects.filter(
                 organization=organization
-            )
-            self.fields["items"].child.fields["service"].queryset = (
-                Service.objects.filter(organization=organization)
             )
             self.fields["items"].child.fields["professional"].queryset = (
                 Professional.objects.filter(organization=organization)
@@ -103,9 +91,7 @@ class AppointmentCreateSerializer(serializers.Serializer):
 
     def validate_customer(self, customer):
         if customer.organization_id != self.context["organization"].id:
-            raise serializers.ValidationError(
-                "Cliente não pertence a esta organização."
-            )
+            raise serializers.ValidationError("Cliente não pertence a esta organização.")
         return customer
 
     def validate_items(self, items):
@@ -115,17 +101,11 @@ class AppointmentCreateSerializer(serializers.Serializer):
         pairs = set()
         for item in items:
             if item["service"].organization_id != organization.id:
-                raise serializers.ValidationError(
-                    "Serviço não pertence a esta organização."
-                )
+                raise serializers.ValidationError("Serviço não pertence a esta organização.")
             if item["professional"].organization_id != organization.id:
-                raise serializers.ValidationError(
-                    "Profissional não pertence a esta organização."
-                )
+                raise serializers.ValidationError("Profissional não pertence a esta organização.")
             if not item["service"].is_active or not item["professional"].is_active:
-                raise serializers.ValidationError(
-                    "Serviço e profissional precisam estar ativos."
-                )
+                raise serializers.ValidationError("Serviço e profissional precisam estar ativos.")
             pairs.add((item["service"].pk, item["professional"].pk))
         links = set(
             ProfessionalService.objects.filter(
@@ -158,8 +138,8 @@ class PublicAppointmentCreateSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
         organization = self.context.get("organization")
         if organization is not None:
-            self.fields["items"].child.fields["service"].queryset = (
-                Service.objects.filter(organization=organization)
+            self.fields["items"].child.fields["service"].queryset = Service.objects.filter(
+                organization=organization
             )
             self.fields["items"].child.fields["professional"].queryset = (
                 Professional.objects.filter(organization=organization)
@@ -185,24 +165,18 @@ class PublicAppointmentCreateSerializer(serializers.Serializer):
 
     def validate_consent(self, value):
         if not value:
-            raise serializers.ValidationError(
-                "O consentimento é necessário para reservar."
-            )
+            raise serializers.ValidationError("O consentimento é necessário para reservar.")
         return value
 
     def validate_items(self, items):
         if len({item["order"] for item in items}) != len(items):
-            raise serializers.ValidationError(
-                "A ordem dos serviços não pode se repetir."
-            )
+            raise serializers.ValidationError("A ordem dos serviços não pode se repetir.")
         return sorted(items, key=lambda item: item["order"])
 
 
 class AppointmentItemSerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(source="service.name", read_only=True)
-    professional_name = serializers.CharField(
-        source="professional.name", read_only=True
-    )
+    professional_name = serializers.CharField(source="professional.name", read_only=True)
 
     class Meta:
         model = AppointmentItem

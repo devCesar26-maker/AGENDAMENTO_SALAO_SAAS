@@ -80,9 +80,7 @@ class InvitationListCreateView(OrganizationSlugMixin, generics.ListCreateAPIView
             invited_by=request.user,
         )
         return Response(
-            InvitationSerializer(
-                invitation, context=self.get_serializer_context()
-            ).data,
+            InvitationSerializer(invitation, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
         )
 
