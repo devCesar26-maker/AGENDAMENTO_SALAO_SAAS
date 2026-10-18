@@ -16,7 +16,9 @@ def lock_customer_identity(organization, *, phone: str, email: str = "") -> None
     if connection.vendor == "postgresql":
         lock_ids = sorted(
             int.from_bytes(
-                hashlib.blake2b(f"{organization.pk}:{identity}".encode(), digest_size=8).digest(),
+                hashlib.blake2b(
+                    f"{organization.pk}:{identity}".encode(), digest_size=8
+                ).digest(),
                 byteorder="big",
                 signed=True,
             )

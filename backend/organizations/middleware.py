@@ -37,9 +37,13 @@ class PublicBookingTenantMiddleware:
             slug = request.headers.get("X-Tenant-Slug")
 
         if slug is None or slugify(slug) != slug:
-            return HttpResponseNotFound("Organização não encontrada para esta página pública.")
+            return HttpResponseNotFound(
+                "Organização não encontrada para esta página pública."
+            )
         try:
             request.organization = Organization.objects.get(slug=slug, is_active=True)
         except Organization.DoesNotExist:
-            return HttpResponseNotFound("Organização não encontrada para esta página pública.")
+            return HttpResponseNotFound(
+                "Organização não encontrada para esta página pública."
+            )
         return self.get_response(request)

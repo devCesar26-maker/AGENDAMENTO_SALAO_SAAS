@@ -35,7 +35,9 @@ def _get_or_create_locked(*, organization, context, key, request_fingerprint, tt
         "request_fingerprint": request_fingerprint,
         "expires_at": timezone.now() + ttl,
     }
-    record, created = IdempotencyKey.objects.get_or_create(scope_digest=digest, defaults=defaults)
+    record, created = IdempotencyKey.objects.get_or_create(
+        scope_digest=digest, defaults=defaults
+    )
     record = IdempotencyKey.objects.select_for_update().get(pk=record.pk)
     if not created and record.expires_at <= timezone.now():
         for field, value in defaults.items():
@@ -45,11 +47,15 @@ def _get_or_create_locked(*, organization, context, key, request_fingerprint, tt
         record.save()
         created = True
     if not created and record.request_fingerprint != request_fingerprint:
-        raise IdempotencyConflict("Esta chave de idempotência já foi usada com outros dados.")
+        raise IdempotencyConflict(
+            "Esta chave de idempotência já foi usada com outros dados."
+        )
     return record, created
 
 
-def execute_idempotently(*, organization, context, key, data, operation, ttl=timedelta(hours=48)):
+def execute_idempotently(
+    *, organization, context, key, data, operation, ttl=timedelta(hours=48)
+):
     """Run and persist an operation in the same transaction as its result."""
     with transaction.atomic():
         record, created = _get_or_create_locked(
@@ -62,7 +68,9 @@ def execute_idempotently(*, organization, context, key, data, operation, ttl=tim
         if not created:
             if record.state == IdempotencyKey.State.COMPLETED:
                 return record.result, True
-            raise IdempotencyConflict("Uma solicitação com esta chave ainda está em andamento.")
+            raise IdempotencyConflict(
+                "Uma solicitação com esta chave ainda está em andamento."
+            )
 
         result = operation()
         record.result = result
@@ -85,7 +93,8 @@ def claim_side_effects(*, organization, context, effects, ttl=timedelta(days=30)
     """Claim multiple natural keys in a few queries, serialized per tenant."""
     now = timezone.now()
     digest_by_key = {
-        effect["key"]: _scope_digest(organization, context, effect["key"]) for effect in effects
+        effect["key"]: _scope_digest(organization, context, effect["key"])
+        for effect in effects
     }
     fingerprints = {effect["key"]: fingerprint(effect["data"]) for effect in effects}
     with transaction.atomic():
@@ -98,13 +107,17 @@ def claim_side_effects(*, organization, context, effects, ttl=timedelta(days=30)
         )
         expired = [record for record in records if record.expires_at <= now]
         if expired:
-            IdempotencyKey.objects.filter(pk__in=[record.pk for record in expired]).delete()
+            IdempotencyKey.objects.filter(
+                pk__in=[record.pk for record in expired]
+            ).delete()
         records = [record for record in records if record.expires_at > now]
         by_digest = {record.scope_digest: record for record in records}
         for key, digest in digest_by_key.items():
             record = by_digest.get(digest)
             if record and record.request_fingerprint != fingerprints[key]:
-                raise IdempotencyConflict("A chave natural da notificação mudou de conteúdo.")
+                raise IdempotencyConflict(
+                    "A chave natural da notificação mudou de conteúdo."
+                )
         to_create = [
             IdempotencyKey(
                 key=key,
@@ -123,11 +136,15 @@ def claim_side_effects(*, organization, context, effects, ttl=timedelta(days=30)
 
 
 def complete_side_effect(record_id):
-    IdempotencyKey.objects.filter(pk=record_id).update(state=IdempotencyKey.State.COMPLETED)
+    IdempotencyKey.objects.filter(pk=record_id).update(
+        state=IdempotencyKey.State.COMPLETED
+    )
 
 
 def complete_side_effects(record_ids):
-    IdempotencyKey.objects.filter(pk__in=record_ids).update(state=IdempotencyKey.State.COMPLETED)
+    IdempotencyKey.objects.filter(pk__in=record_ids).update(
+        state=IdempotencyKey.State.COMPLETED
+    )
 
 
 def release_side_effects(record_ids):

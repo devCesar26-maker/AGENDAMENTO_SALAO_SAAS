@@ -3,7 +3,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from billing.models import Subscription
+from billing.models import Plan, PlanTier, Subscription
 from organizations.models import Organization
 
 
@@ -11,4 +11,7 @@ from organizations.models import Organization
 def create_subscription_for_new_organization(sender, instance, created, **kwargs):
     """Todo salão nasce com assinatura FREE (sem cobrança até upgrade)."""
     if created:
-        Subscription.objects.get_or_create(organization=instance)
+        Subscription.objects.get_or_create(
+            organization=instance,
+            defaults={"plan": Plan.objects.get(tier=PlanTier.FREE)},
+        )

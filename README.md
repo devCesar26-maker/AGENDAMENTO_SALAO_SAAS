@@ -269,9 +269,41 @@ envio. Como SMTP e PostgreSQL não compartilham uma transação, isso oferece
 semântica de tentativa no máximo uma vez: uma queda depois da reivindicação e
 antes do envio, ou um erro ambíguo do SMTP, pode deixar um e-mail por entregar.
 Gravar somente depois do SMTP permitiria duplicação se o worker caísse após o
-servidor aceitar a mensagem. Esta abstração por contexto e chave pode ser
-reaproveitada na Fase 6 para webhooks de pagamento, armazenando o resultado e o
-fingerprint do evento para reconhecer retries do provedor.
+servidor aceitar a mensagem. Webhooks de pagamento reutilizam a tabela com um
+contexto global e o ID da notificação Mercado Pago como chave (com fallback
+para o ID do recurso); retries devolvem o
+resultado armazenado sem aplicar a transição de assinatura novamente.
+
+### Planos, limites e Mercado Pago (sandbox)
+
+Toda organização criada pelo endpoint de registro recebe uma assinatura FREE
+na mesma transação. `GET /api/v1/billing/plans/` apresenta o nome comercial
+adequado à vertical. O tier é um identificador de API; cobrança e limites usam
+o tier, nunca o nome apresentado. Limites `null` significam ilimitado. PLUS e
+PREMIUM têm preços iniciais de R$ 29,90 e R$ 59,90 por mês, armazenados em
+centavos nos dados seed dos planos.
+
+FREE inclui 1 profissional e 50 agendamentos não cancelados por mês-calendário;
+PLUS, 3 profissionais e 300 agendamentos; PREMIUM é ilimitado. A cota mensal
+conta agendamentos pela data de criação, exceto os que estão com status
+CANCELED. Após downgrade, profissionais e agendamentos existentes acima do
+novo limite permanecem intactos; novas criações ficam bloqueadas enquanto o
+uso não cancelado estiver no limite.
+
+Configure `MP_ACCESS_TOKEN` e `MP_PUBLIC_KEY` em `backend/.env` com credenciais
+de teste do Mercado Pago. `MP_WEBHOOK_SECRET` deve conter o segredo de
+assinatura cadastrado para a URL de webhook. O checkout é restrito ao OWNER.
+O webhook valida HMAC SHA-256 do header `x-signature` usando `data.id`,
+`x-request-id` e `ts`; sem segredo configurado, rejeita os eventos.
+
+Para simular em desenvolvimento, exponha a API com um túnel HTTPS e configure
+no painel do Mercado Pago a URL
+`https://<host>/api/v1/billing/webhook/mercadopago/`, escolhendo notificações
+de assinatura. Envie o header e payload assinados conforme o formato oficial;
+payloads inventados sem assinatura válida são rejeitados. A API consulta a
+assinatura no Mercado Pago antes de aplicar a mudança: `authorized` ativa o
+tier contratado, `cancelled` rebaixa para FREE/CANCELED e `paused` ou `pending`
+rebaixa para FREE/PAST_DUE.
 
 ## Onde o access token mora no frontend (decisão)
 

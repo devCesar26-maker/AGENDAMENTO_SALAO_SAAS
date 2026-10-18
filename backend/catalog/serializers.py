@@ -33,12 +33,16 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
         """Nome único por salão (tradução amigável da constraint do banco)."""
         organization = self.context.get("organization")
         cleaned = sanitize_free_text(value).strip()
-        qs = ServiceCategory.objects.filter(organization=organization, name__iexact=cleaned)
+        qs = ServiceCategory.objects.filter(
+            organization=organization, name__iexact=cleaned
+        )
         instance_pk = getattr(self.instance, "pk", None)
         if instance_pk is not None:
             qs = qs.exclude(pk=instance_pk)
         if qs.exists():
-            raise serializers.ValidationError("Já existe uma categoria com este nome neste salão.")
+            raise serializers.ValidationError(
+                "Já existe uma categoria com este nome neste salão."
+            )
         return cleaned
 
 
@@ -81,7 +85,9 @@ class ServiceLinkReadSerializer(serializers.ModelSerializer):
 
     service = serializers.PrimaryKeyRelatedField(read_only=True)
     service_name = serializers.CharField(source="service.name", read_only=True)
-    service_category = serializers.CharField(source="service.category.name", read_only=True)
+    service_category = serializers.CharField(
+        source="service.category.name", read_only=True
+    )
 
     class Meta:
         model = ProfessionalService
@@ -152,7 +158,9 @@ class ProfessionalWriteSerializer(serializers.ModelSerializer):
             return user
         if (
             organization is not None
-            and not user.memberships.filter(organization=organization, is_active=True).exists()
+            and not user.memberships.filter(
+                organization=organization, is_active=True
+            ).exists()
         ):
             raise serializers.ValidationError(
                 "O usuário vinculado precisa ser membro ativo deste salão."

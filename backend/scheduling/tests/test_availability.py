@@ -70,8 +70,14 @@ def test_servico_cruza_meia_noite_no_fuso_da_organizacao():
     service.duration_minutes = 90
     service.save(update_fields=["duration_minutes"])
     slots = calcular_slots_disponiveis(organization, [service], [professional], DAY)
-    slot = next(slot for slot in slots if slot["start_at"].astimezone(organization_tz()).hour == 23)
-    assert slot["items"][0]["end_at"].astimezone(organization_tz()).date() == date(2026, 10, 20)
+    slot = next(
+        slot
+        for slot in slots
+        if slot["start_at"].astimezone(organization_tz()).hour == 23
+    )
+    assert slot["items"][0]["end_at"].astimezone(organization_tz()).date() == date(
+        2026, 10, 20
+    )
     appointment = create_appointment(
         organization=organization,
         customer=customer,
@@ -79,7 +85,9 @@ def test_servico_cruza_meia_noite_no_fuso_da_organizacao():
         desired_start=slot["start_at"],
         membership=membership,
     )
-    assert appointment.items.get().end_at.astimezone(organization_tz()).date() == date(2026, 10, 20)
+    assert appointment.items.get().end_at.astimezone(organization_tz()).date() == date(
+        2026, 10, 20
+    )
 
 
 def organization_tz():
@@ -95,7 +103,9 @@ def test_hora_inexistente_na_transicao_de_dst_nao_gera_slot():
     )
     professional = ProfessionalFactory(organization=organization)
     category = ServiceCategoryFactory(organization=organization)
-    service = ServiceFactory(organization=organization, category=category, duration_minutes=30)
+    service = ServiceFactory(
+        organization=organization, category=category, duration_minutes=30
+    )
     ProfessionalServiceFactory(
         organization=organization, professional=professional, service=service
     )
@@ -106,15 +116,21 @@ def test_hora_inexistente_na_transicao_de_dst_nao_gera_slot():
         start_time=time(1, 0),
         end_time=time(4, 0),
     )
-    slots = calcular_slots_disponiveis(organization, [service], [professional], date(2026, 3, 8))
-    local_hours = {slot["start_at"].astimezone(ZoneInfo("America/New_York")).hour for slot in slots}
+    slots = calcular_slots_disponiveis(
+        organization, [service], [professional], date(2026, 3, 8)
+    )
+    local_hours = {
+        slot["start_at"].astimezone(ZoneInfo("America/New_York")).hour for slot in slots
+    }
     assert 2 not in local_hours
     assert 3 in local_hours
 
 
 @pytest.mark.django_db
 def test_servicos_em_profissionais_diferentes_bloqueiam_slot_com_conflito():
-    organization, membership, first_pro, category, first_service, _, customer = setup_schedule()
+    organization, membership, first_pro, category, first_service, _, customer = (
+        setup_schedule()
+    )
     second_pro = ProfessionalFactory(organization=organization)
     second_service = ServiceFactory(
         organization=organization, category=category, duration_minutes=30
@@ -130,7 +146,9 @@ def test_servicos_em_profissionais_diferentes_bloqueiam_slot_com_conflito():
         end_time=time(18, 0),
     )
     customer = CustomerFactory(organization=organization)
-    appointment = Appointment.objects.create(organization=organization, customer=customer)
+    appointment = Appointment.objects.create(
+        organization=organization, customer=customer
+    )
     AppointmentItem.objects.create(
         organization=organization,
         appointment=appointment,
@@ -171,7 +189,9 @@ def test_timeoff_bloqueia_a_disponibilidade():
         start_date=DAY,
         end_date=DAY,
     )
-    assert calcular_slots_disponiveis(organization, [service], [professional], DAY) == []
+    assert (
+        calcular_slots_disponiveis(organization, [service], [professional], DAY) == []
+    )
     with pytest.raises(SlotUnavailable):
         create_appointment(
             organization=organization,
@@ -210,13 +230,17 @@ def test_fora_do_horario_da_organizacao_ou_profissional_nao_tem_slot():
         )
     assert all(
         slot["start_at"].astimezone(organization_tz()).hour >= 10
-        for slot in calcular_slots_disponiveis(organization, [service], [professional], DAY)
+        for slot in calcular_slots_disponiveis(
+            organization, [service], [professional], DAY
+        )
     )
 
 
 @pytest.mark.django_db
 def test_criacao_revalida_slot_e_grava_preco_e_comissao_snapshot():
-    organization, membership, professional, _, service, link, customer = setup_schedule()
+    organization, membership, professional, _, service, link, customer = (
+        setup_schedule()
+    )
     service.buffer_minutes = 15
     service.save(update_fields=["buffer_minutes"])
     start_at = local_start("2026-10-19T09:00:00").astimezone(UTC)
@@ -238,7 +262,9 @@ def test_criacao_revalida_slot_e_grava_preco_e_comissao_snapshot():
     assert item.price != Decimal("999.00")
     assert item.buffer_minutes == 15
     half_past_nine = local_start("2026-10-19T09:30:00").astimezone(UTC)
-    later_slots = calcular_slots_disponiveis(organization, [service], [professional], DAY)
+    later_slots = calcular_slots_disponiveis(
+        organization, [service], [professional], DAY
+    )
     assert all(slot["start_at"] != half_past_nine for slot in later_slots)
     with pytest.raises(SlotUnavailable):
         create_appointment(
@@ -252,9 +278,13 @@ def test_criacao_revalida_slot_e_grava_preco_e_comissao_snapshot():
 
 @pytest.mark.django_db
 def test_api_disponibilidade_cria_e_cancela_agendamento(auth_client, organization):
-    professional = ProfessionalFactory(organization=organization, user=organization._owner)
+    professional = ProfessionalFactory(
+        organization=organization, user=organization._owner
+    )
     category = ServiceCategoryFactory(organization=organization)
-    service = ServiceFactory(organization=organization, category=category, duration_minutes=30)
+    service = ServiceFactory(
+        organization=organization, category=category, duration_minutes=30
+    )
     ProfessionalServiceFactory(
         organization=organization, professional=professional, service=service
     )
@@ -280,7 +310,9 @@ def test_api_disponibilidade_cria_e_cancela_agendamento(auth_client, organizatio
         {
             "customer": customer.pk,
             "start_at": start_at,
-            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+            "items": [
+                {"service": service.pk, "professional": professional.pk, "order": 0}
+            ],
         },
         format="json",
     )
@@ -291,7 +323,9 @@ def test_api_disponibilidade_cria_e_cancela_agendamento(auth_client, organizatio
         {
             "customer": customer.pk,
             "start_at": start_at,
-            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+            "items": [
+                {"service": service.pk, "professional": professional.pk, "order": 0}
+            ],
         },
         format="json",
     )
@@ -344,7 +378,9 @@ def test_listagem_de_agendamentos_prefaz_itens_e_relacoes(django_assert_num_quer
 
 
 @pytest.mark.django_db
-def test_professional_so_ve_e_edita_agendamentos_do_proprio_perfil(api_client, organization):
+def test_professional_so_ve_e_edita_agendamentos_do_proprio_perfil(
+    api_client, organization
+):
     user = UserFactory()
     MembershipFactory(organization=organization, user=user, role="PROFESSIONAL")
     own_professional = ProfessionalFactory(organization=organization, user=user)
@@ -352,8 +388,12 @@ def test_professional_so_ve_e_edita_agendamentos_do_proprio_perfil(api_client, o
     category = ServiceCategoryFactory(organization=organization)
     service = ServiceFactory(organization=organization, category=category)
     customer = CustomerFactory(organization=organization)
-    own_appointment = Appointment.objects.create(organization=organization, customer=customer)
-    other_appointment = Appointment.objects.create(organization=organization, customer=customer)
+    own_appointment = Appointment.objects.create(
+        organization=organization, customer=customer
+    )
+    other_appointment = Appointment.objects.create(
+        organization=organization, customer=customer
+    )
     for order, (appointment, professional) in enumerate(
         (
             (own_appointment, own_professional),

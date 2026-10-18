@@ -23,7 +23,9 @@ from notifications.serializers import (
 
 
 @extend_schema(tags=["waitlist"])
-class WaitlistEntryListCreateView(TenantSerializerContextMixin, generics.ListCreateAPIView):
+class WaitlistEntryListCreateView(
+    TenantSerializerContextMixin, generics.ListCreateAPIView
+):
     serializer_class = WaitlistEntrySerializer
     permission_classes = [WaitlistManagerAccess]
     pagination_class = DefaultPagination

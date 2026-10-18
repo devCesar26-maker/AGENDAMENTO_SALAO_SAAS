@@ -122,7 +122,9 @@ class PublicProfessionalsView(PublicAPIView):
         professionals = {}
         for link in links:
             professionals[link.professional_id] = link.professional
-            services_by_professional.setdefault(link.professional_id, []).append(link.service_id)
+            services_by_professional.setdefault(link.professional_id, []).append(
+                link.service_id
+            )
         return Response(
             [
                 {
@@ -215,6 +217,9 @@ class PublicAppointmentCreateView(PublicAPIView):
         def create_booking():
             # Serializa limite, identidade do cliente e reserva no mesmo tenant.
             with transaction.atomic():
+                from billing.services import check_appointment_limit
+
+                check_appointment_limit(organization)
                 customer_services.lock_customer_identity(
                     organization, phone=data["phone"], email=data.get("email", "")
                 )
@@ -274,7 +279,9 @@ class PublicAppointmentCreateView(PublicAPIView):
 
                 customer.lgpd_consent = True
                 customer.lgpd_consent_at = now
-                customer.save(update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"])
+                customer.save(
+                    update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"]
+                )
                 appointment = services.create_appointment(
                     organization=organization,
                     customer=customer,
@@ -289,7 +296,9 @@ class PublicAppointmentCreateView(PublicAPIView):
                 "id": appointment.pk,
                 "status": appointment.status,
                 "start_at": (
-                    first_item.start_at.isoformat() if first_item else data["start_at"].isoformat()
+                    first_item.start_at.isoformat()
+                    if first_item
+                    else data["start_at"].isoformat()
                 ),
                 "origin": Appointment.Origin.PUBLIC_PAGE,
             }
@@ -297,7 +306,9 @@ class PublicAppointmentCreateView(PublicAPIView):
         idempotency_key = request.headers.get("Idempotency-Key")
         if idempotency_key:
             if len(idempotency_key) > 255 or not idempotency_key.strip():
-                raise serializers.ValidationError({"Idempotency-Key": "Chave inválida."})
+                raise serializers.ValidationError(
+                    {"Idempotency-Key": "Chave inválida."}
+                )
             try:
                 result, _ = execute_idempotently(
                     organization=organization,

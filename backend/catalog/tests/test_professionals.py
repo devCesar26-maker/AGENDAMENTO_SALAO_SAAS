@@ -41,7 +41,9 @@ class TestCriarProfessional:
         data = response.json()
         assert data["user"]["email"] == professional_user.email
 
-    def test_usuario_fora_do_salao_rejeitado(self, auth_client, organization, other_organization):
+    def test_usuario_fora_do_salao_rejeitado(
+        self, auth_client, organization, other_organization
+    ):
         """Anti-escalonamento: não pode vincular usuário de outro salão."""
         payload = {"name": "X", "user": other_organization._professional.user.pk}
         response = auth_client.post(list_url(), payload, format="json")
@@ -65,7 +67,9 @@ class TestCriarProfessional:
 
 
 class TestListarProfessional:
-    def test_todo_membro_lista(self, professional_client, organization, professional, servico):
+    def test_todo_membro_lista(
+        self, professional_client, organization, professional, servico
+    ):
         """GET inclui service_links sem N+1."""
         from catalog.services import link_service_to_professional
 
@@ -108,7 +112,9 @@ class TestEditarProfessional:
         professional.refresh_from_db()
         assert professional.name == "Novo nome"
 
-    def test_professional_edita_proprios_dados_basicos(self, professional_client, professional):
+    def test_professional_edita_proprios_dados_basicos(
+        self, professional_client, professional
+    ):
         response = professional_client.patch(
             detail_url(professional.pk), {"name": "Eu mesmo"}, format="json"
         )
@@ -116,7 +122,9 @@ class TestEditarProfessional:
         professional.refresh_from_db()
         assert professional.name == "Eu mesmo"
 
-    def test_professional_nao_edita_active_nem_user(self, professional_client, professional):
+    def test_professional_nao_edita_active_nem_user(
+        self, professional_client, professional
+    ):
         """Um PROFESSIONAL não pode desativar a si mesmo nem trocar usuário."""
         response_active = professional_client.patch(
             detail_url(professional.pk), {"is_active": False}, format="json"
@@ -160,7 +168,9 @@ class TestExcluirProfessional:
             == status.HTTP_204_NO_CONTENT
         )
 
-    def test_professional_nao_exclui_nem_o_proprio(self, professional_client, professional):
+    def test_professional_nao_exclui_nem_o_proprio(
+        self, professional_client, professional
+    ):
         assert (
             professional_client.delete(detail_url(professional.pk)).status_code
             == status.HTTP_403_FORBIDDEN

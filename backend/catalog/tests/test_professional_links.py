@@ -16,7 +16,9 @@ pytestmark = pytest.mark.django_db
 
 
 def link_list_url(professional_pk):
-    return reverse("professional-service-list", kwargs={"professional_id": professional_pk})
+    return reverse(
+        "professional-service-list", kwargs={"professional_id": professional_pk}
+    )
 
 
 def link_detail_url(pk):
@@ -26,18 +28,24 @@ def link_detail_url(pk):
 @pytest.fixture
 def servicos(organization):
     categoria = ServiceCategoryFactory(organization=organization)
-    return [ServiceFactory(organization=organization, category=categoria) for _ in range(2)]
+    return [
+        ServiceFactory(organization=organization, category=categoria) for _ in range(2)
+    ]
 
 
 class TestVincular:
-    def test_owner_vincula_com_overrides(self, auth_client, organization, professional, servicos):
+    def test_owner_vincula_com_overrides(
+        self, auth_client, organization, professional, servicos
+    ):
         payload = {
             "service": servicos[0].pk,
             "price_override": "150.00",
             "duration_override": 30,
             "commission_percentage": 40.50,
         }
-        response = auth_client.post(link_list_url(professional.pk), payload, format="json")
+        response = auth_client.post(
+            link_list_url(professional.pk), payload, format="json"
+        )
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["service"] == servicos[0].pk
@@ -51,9 +59,13 @@ class TestVincular:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_servico_de_outro_salao_rejeitado(self, auth_client, professional, other_organization):
+    def test_servico_de_outro_salao_rejeitado(
+        self, auth_client, professional, other_organization
+    ):
         categoria_b = ServiceCategoryFactory(organization=other_organization)
-        service_b = ServiceFactory(organization=other_organization, category=categoria_b)
+        service_b = ServiceFactory(
+            organization=other_organization, category=categoria_b
+        )
         response = auth_client.post(
             link_list_url(professional.pk), {"service": service_b.pk}, format="json"
         )
@@ -82,15 +94,21 @@ class TestVincular:
 
 class TestEditarDesvincular:
     def test_owner_ajusta_overrides(self, auth_client, professional, servicos):
-        link = link_service_to_professional(professional=professional, service=servicos[0])
+        link = link_service_to_professional(
+            professional=professional, service=servicos[0]
+        )
         response = auth_client.patch(
             link_detail_url(link.pk), {"price_override": "99.00"}, format="json"
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["price_override"] == "99.00"
 
-    def test_professional_ajusta_o_proprio(self, professional_client, professional, servicos):
-        link = link_service_to_professional(professional=professional, service=servicos[0])
+    def test_professional_ajusta_o_proprio(
+        self, professional_client, professional, servicos
+    ):
+        link = link_service_to_professional(
+            professional=professional, service=servicos[0]
+        )
         response = professional_client.patch(
             link_detail_url(link.pk), {"commission_percentage": 10}, format="json"
         )
@@ -100,14 +118,20 @@ class TestEditarDesvincular:
         self, professional, organization, professional_client, servicos
     ):
         outro = ProfessionalFactory(organization=organization)
-        link_outro = link_service_to_professional(professional=outro, service=servicos[0])
+        link_outro = link_service_to_professional(
+            professional=outro, service=servicos[0]
+        )
         response = professional_client.patch(
             link_detail_url(link_outro.pk), {"price_override": "1.00"}, format="json"
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_professional_desvincula_o_proprio(self, professional_client, professional, servicos):
-        link = link_service_to_professional(professional=professional, service=servicos[0])
+    def test_professional_desvincula_o_proprio(
+        self, professional_client, professional, servicos
+    ):
+        link = link_service_to_professional(
+            professional=professional, service=servicos[0]
+        )
         response = professional_client.delete(link_detail_url(link.pk))
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert professional.service_links.count() == 0
@@ -116,7 +140,9 @@ class TestEditarDesvincular:
         self, professional, organization, professional_client, servicos
     ):
         outro = ProfessionalFactory(organization=organization)
-        link_outro = link_service_to_professional(professional=outro, service=servicos[0])
+        link_outro = link_service_to_professional(
+            professional=outro, service=servicos[0]
+        )
         response = professional_client.delete(link_detail_url(link_outro.pk))
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert ProfessionalService.objects.filter(pk=link_outro.pk).exists()

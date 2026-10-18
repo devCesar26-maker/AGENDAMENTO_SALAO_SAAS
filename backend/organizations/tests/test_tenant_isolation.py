@@ -50,7 +50,9 @@ def client_do_dono_a(api_client, tenant_a):
 class TestIsolamentoPorSlug:
     def test_dono_a_nao_ve_salao_b(self, client_do_dono_a, tenant_b):
         org_b = tenant_b[0]
-        response = client_do_dono_a.get(reverse("organization-detail", kwargs={"slug": org_b.slug}))
+        response = client_do_dono_a.get(
+            reverse("organization-detail", kwargs={"slug": org_b.slug})
+        )
         assert response.status_code in (
             status.HTTP_403_FORBIDDEN,
             status.HTTP_404_NOT_FOUND,
@@ -137,7 +139,9 @@ class TestIsolamentoPorPayload:
         membership = org_b.memberships.filter(user__email=invitation_b.email).first()
         assert membership.role == invitation_b.role == "PROFESSIONAL"
 
-    def test_token_de_convite_de_outra_org_so_aceita_uma_vez(self, api_client, tenant_b):
+    def test_token_de_convite_de_outra_org_so_aceita_uma_vez(
+        self, api_client, tenant_b
+    ):
         org_b, _, _, invitation_b = tenant_b
         email = invitation_b.email
         api_client.post(

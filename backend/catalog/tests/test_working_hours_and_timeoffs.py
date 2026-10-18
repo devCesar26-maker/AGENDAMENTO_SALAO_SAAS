@@ -16,7 +16,9 @@ pytestmark = pytest.mark.django_db
 
 
 def wh_list_url(professional_pk):
-    return reverse("professional-working-hours-list", kwargs={"professional_id": professional_pk})
+    return reverse(
+        "professional-working-hours-list", kwargs={"professional_id": professional_pk}
+    )
 
 
 def wh_detail_url(pk):
@@ -24,7 +26,9 @@ def wh_detail_url(pk):
 
 
 def to_list_url(professional_pk):
-    return reverse("professional-timeoff-list", kwargs={"professional_id": professional_pk})
+    return reverse(
+        "professional-timeoff-list", kwargs={"professional_id": professional_pk}
+    )
 
 
 def to_detail_url(pk):
@@ -49,11 +53,15 @@ class TestWorkingHours:
 
     def test_horario_invalido_rejeitado(self, auth_client, professional):
         payload = {**JANELA, "start_time": "18:00", "end_time": "18:00"}
-        response = auth_client.post(wh_list_url(professional.pk), payload, format="json")
+        response = auth_client.post(
+            wh_list_url(professional.pk), payload, format="json"
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert professional.working_hours.count() == 0
 
-    def test_horario_noturno_que_cruza_meia_noite_e_permitido(self, auth_client, professional):
+    def test_horario_noturno_que_cruza_meia_noite_e_permitido(
+        self, auth_client, professional
+    ):
         response = auth_client.post(
             wh_list_url(professional.pk),
             {**JANELA, "start_time": "22:00", "end_time": "02:00"},
@@ -62,7 +70,9 @@ class TestWorkingHours:
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_professional_cria_no_proprio(self, professional_client, professional):
-        response = professional_client.post(wh_list_url(professional.pk), JANELA, format="json")
+        response = professional_client.post(
+            wh_list_url(professional.pk), JANELA, format="json"
+        )
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_professional_403_na_agenda_do_outro_mesmo_salao(
@@ -72,7 +82,9 @@ class TestWorkingHours:
         Caso explícito do enunciado: um PROFESSIONAL tentando mexer na agenda
         de OUTRO profissional do MESMO salão recebe 403.
         """
-        response = professional_client.post(wh_list_url(colega.pk), JANELA, format="json")
+        response = professional_client.post(
+            wh_list_url(colega.pk), JANELA, format="json"
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert colega.working_hours.count() == 0
 
@@ -100,7 +112,9 @@ class TestWorkingHours:
         janela.refresh_from_db()
         assert janela.end_time == datetime.time(22, 0)
 
-    def test_idor_de_outro_tenant_404(self, professional, other_organization, professional_client):
+    def test_idor_de_outro_tenant_404(
+        self, professional, other_organization, professional_client
+    ):
         janela_b = WorkingHoursFactory(
             organization=other_organization,
             professional=other_organization._professional,
@@ -150,7 +164,9 @@ class TestTimeOff:
 
     def test_folga_invalida_rejeitada(self, auth_client, professional):
         payload = {**FOLGA, "start_date": "2026-12-26", "end_date": "2026-12-25"}
-        response = auth_client.post(to_list_url(professional.pk), payload, format="json")
+        response = auth_client.post(
+            to_list_url(professional.pk), payload, format="json"
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_reason_sanitizado(self, auth_client, professional):
@@ -160,13 +176,17 @@ class TestTimeOff:
         assert "<script>" not in folga.reason
 
     def test_professional_cria_no_proprio(self, professional_client, professional):
-        response = professional_client.post(to_list_url(professional.pk), FOLGA, format="json")
+        response = professional_client.post(
+            to_list_url(professional.pk), FOLGA, format="json"
+        )
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_professional_403_na_folga_do_outro(
         self, professional, organization, professional_client, colega
     ):
-        response = professional_client.post(to_list_url(colega.pk), FOLGA, format="json")
+        response = professional_client.post(
+            to_list_url(colega.pk), FOLGA, format="json"
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert colega.time_offs.count() == 0
 
@@ -179,6 +199,8 @@ class TestTimeOff:
         assert TimeOff.objects.filter(pk=folga_colega.pk).exists()
 
     def test_owner_lista_folgas_do_profissional(self, auth_client, professional):
-        TimeOffFactory(organization=professional.organization, professional=professional)
+        TimeOffFactory(
+            organization=professional.organization, professional=professional
+        )
         response = auth_client.get(to_list_url(professional.pk))
         assert response.json()["count"] == 1

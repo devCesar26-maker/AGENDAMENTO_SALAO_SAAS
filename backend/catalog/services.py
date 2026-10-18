@@ -9,6 +9,15 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from catalog.models import Professional, ProfessionalService, Service
 
 
+@transaction.atomic
+def create_professional(*, organization, validated_data):
+    """Cria profissional respeitando atomicamente o limite do plano."""
+    from billing.services import check_professional_limit
+
+    check_professional_limit(organization)
+    return Professional.objects.create(organization=organization, **validated_data)
+
+
 def link_service_to_professional(
     *,
     professional: Professional,

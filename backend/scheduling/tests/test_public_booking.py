@@ -28,7 +28,9 @@ def make_public_schedule(organization):
     organization.timezone = "America/Sao_Paulo"
     organization.working_hours = {"mon": [["09:00", "18:00"]]}
     organization.save(update_fields=["timezone", "working_hours"])
-    professional = ProfessionalFactory(organization=organization, name="Profissional público")
+    professional = ProfessionalFactory(
+        organization=organization, name="Profissional público"
+    )
     category = ServiceCategoryFactory(organization=organization)
     service = ServiceFactory(
         organization=organization,
@@ -73,7 +75,9 @@ def test_reserva_publica_grava_consentimento_e_forca_origem(api_client, organiza
             "email": "CLIENTE@example.com",
             "consent": True,
             "start_at": start_at,
-            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+            "items": [
+                {"service": service.pk, "professional": professional.pk, "order": 0}
+            ],
             "origin": Appointment.Origin.DASHBOARD,
         },
         format="json",
@@ -93,7 +97,9 @@ def test_reserva_publica_grava_consentimento_e_forca_origem(api_client, organiza
 
 
 @pytest.mark.django_db
-def test_chave_idempotente_retorna_a_mesma_reserva_sem_duplicar(api_client, organization):
+def test_chave_idempotente_retorna_a_mesma_reserva_sem_duplicar(
+    api_client, organization
+):
     _, service, professional = make_public_schedule(organization)
     start_at = api_client.get(
         reverse("public-availability"),
@@ -113,7 +119,9 @@ def test_chave_idempotente_retorna_a_mesma_reserva_sem_duplicar(api_client, orga
         "HTTP_IDEMPOTENCY_KEY": "booking-retry-123",
     }
 
-    first = api_client.post(reverse("public-appointment-create"), payload, format="json", **headers)
+    first = api_client.post(
+        reverse("public-appointment-create"), payload, format="json", **headers
+    )
     second = api_client.post(
         reverse("public-appointment-create"), payload, format="json", **headers
     )
@@ -156,7 +164,9 @@ def test_mesma_chave_com_payload_diferente_retorna_conflito(api_client, organiza
 
 
 @pytest.mark.django_db
-def test_reserva_publica_nao_altera_identidade_de_cliente_existente(api_client, organization):
+def test_reserva_publica_nao_altera_identidade_de_cliente_existente(
+    api_client, organization
+):
     _, service, professional = make_public_schedule(organization)
     customer = Customer.objects.create(
         organization=organization,
@@ -177,7 +187,9 @@ def test_reserva_publica_nao_altera_identidade_de_cliente_existente(api_client, 
             "email": "atacante@example.com",
             "consent": True,
             "start_at": start_at,
-            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+            "items": [
+                {"service": service.pk, "professional": professional.pk, "order": 0}
+            ],
         },
         format="json",
         **public_headers(organization),
@@ -206,7 +218,9 @@ def test_availability_rejeita_lista_de_servicos_excessiva(api_client, organizati
 
 
 @pytest.mark.django_db
-@override_settings(PUBLIC_BASE_DOMAIN="salons.example.test", ALLOWED_HOSTS=[".example.test"])
+@override_settings(
+    PUBLIC_BASE_DOMAIN="salons.example.test", ALLOWED_HOSTS=[".example.test"]
+)
 def test_host_de_tenant_a_nao_lista_ou_reserva_dados_de_b(api_client, organization):
     category_a, _, professional_a = make_public_schedule(organization)
     organization_b = OrganizationFactory(name="Salão B")
@@ -242,11 +256,15 @@ def test_host_de_tenant_a_nao_lista_ou_reserva_dados_de_b(api_client, organizati
 
 
 @pytest.mark.django_db
-def test_rotas_publicas_nao_exigem_autenticacao_e_limitam_por_ip(api_client, organization):
+def test_rotas_publicas_nao_exigem_autenticacao_e_limitam_por_ip(
+    api_client, organization
+):
     make_public_schedule(organization)
     cache.clear()
     statuses = [
-        api_client.get(reverse("public-catalog"), **public_headers(organization)).status_code
+        api_client.get(
+            reverse("public-catalog"), **public_headers(organization)
+        ).status_code
         for _ in range(11)
     ]
     assert statuses[:10] == [200] * 10
@@ -254,7 +272,9 @@ def test_rotas_publicas_nao_exigem_autenticacao_e_limitam_por_ip(api_client, org
 
 
 @pytest.mark.django_db
-def test_cliente_publico_tem_limite_de_tres_reservas_em_24_horas(api_client, organization):
+def test_cliente_publico_tem_limite_de_tres_reservas_em_24_horas(
+    api_client, organization
+):
     _, service, professional = make_public_schedule(organization)
     slots = api_client.get(
         reverse("public-availability"),
@@ -326,12 +346,17 @@ def test_cliente_com_historico_concluido_pode_agendar_ate_quatro_vezes_em_24_hor
         if expected == 429:
             assert "Limite de reservas" in response.json()["error"]["detail"]
 
-    assert Appointment.objects.filter(organization=organization, customer=customer).count() == 5
+    assert (
+        Appointment.objects.filter(organization=organization, customer=customer).count()
+        == 5
+    )
 
 
 @pytest.mark.django_db
 def test_remarcar_conflito_retorna_409_e_slot_livre_atualiza(auth_client, organization):
-    professional = ProfessionalFactory(organization=organization, user=organization._owner)
+    professional = ProfessionalFactory(
+        organization=organization, user=organization._owner
+    )
     category = ServiceCategoryFactory(organization=organization)
     service = ServiceFactory(
         organization=organization, category=category, duration_minutes=30, price="50.00"

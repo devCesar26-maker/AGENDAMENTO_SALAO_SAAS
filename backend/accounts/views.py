@@ -57,7 +57,9 @@ class LoginView(TokenObtainPairView):
 class RefreshTokenView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
-        data.setdefault("refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, ""))
+        data.setdefault(
+            "refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, "")
+        )
         serializer = self.get_serializer(data=data)
         try:
             serializer.is_valid(raise_exception=True)
@@ -130,11 +132,15 @@ class LogoutView(APIView):
     )
     def post(self, request):
         data = request.data.copy()
-        data.setdefault("refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, ""))
+        data.setdefault(
+            "refresh", request.COOKIES.get(settings.REFRESH_TOKEN_COOKIE_NAME, "")
+        )
         logout_serializer = serializers.LogoutSerializer(data=data)
         logout_serializer.is_valid(raise_exception=True)
         logout_serializer.save()
-        response = Response({"detail": "Logout realizado com sucesso."}, status=status.HTTP_200_OK)
+        response = Response(
+            {"detail": "Logout realizado com sucesso."}, status=status.HTTP_200_OK
+        )
         clear_refresh_cookie(response)
         return response
 
@@ -183,7 +189,9 @@ class PasswordResetConfirmView(APIView):
         serializer = serializers.PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"detail": "Senha redefinida com sucesso."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Senha redefinida com sucesso."}, status=status.HTTP_200_OK
+        )
 
 
 class MeView(APIView):

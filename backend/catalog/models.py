@@ -141,7 +141,9 @@ class ProfessionalService(TenantModel):
     professional = models.ForeignKey(
         Professional, on_delete=models.CASCADE, related_name="service_links"
     )
-    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="service_links")
+    service = models.ForeignKey(
+        Service, on_delete=models.CASCADE, related_name="service_links"
+    )
     price_override = models.DecimalField(
         "preço override",
         max_digits=10,

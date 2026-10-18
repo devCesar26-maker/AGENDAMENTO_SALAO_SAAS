@@ -10,7 +10,9 @@ def list_customers(organization, *, search: str | None = None):
     qs = Customer.objects.filter(organization=organization).order_by("name")
     if search:
         qs = qs.filter(
-            Q(name__icontains=search) | Q(phone__icontains=search) | Q(email__icontains=search)
+            Q(name__icontains=search)
+            | Q(phone__icontains=search)
+            | Q(email__icontains=search)
         )
     return qs
 

@@ -40,8 +40,12 @@ class WaitlistEntrySerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         organization = self.context.get("organization")
         if organization:
-            self.fields["customer"].queryset = Customer.objects.filter(organization=organization)
-            self.fields["service"].queryset = Service.objects.filter(organization=organization)
+            self.fields["customer"].queryset = Customer.objects.filter(
+                organization=organization
+            )
+            self.fields["service"].queryset = Service.objects.filter(
+                organization=organization
+            )
             self.fields["professional"].queryset = Professional.objects.filter(
                 organization=organization
             )
@@ -51,7 +55,9 @@ class WaitlistEntrySerializer(serializers.ModelSerializer):
         service = attrs["service"]
         professional = attrs.get("professional")
         if not service.is_active:
-            raise serializers.ValidationError({"service": "O serviço precisa estar ativo."})
+            raise serializers.ValidationError(
+                {"service": "O serviço precisa estar ativo."}
+            )
         if professional:
             if not professional.is_active:
                 raise serializers.ValidationError(
@@ -110,12 +116,16 @@ class PublicWaitlistEntrySerializer(serializers.Serializer):
         organization = self.context["organization"]
         today = timezone.localdate(timezone=ZoneInfo(organization.timezone))
         if value < today:
-            raise serializers.ValidationError("A data desejada não pode estar no passado.")
+            raise serializers.ValidationError(
+                "A data desejada não pode estar no passado."
+            )
         return value
 
     def validate_consent(self, value):
         if not value:
-            raise serializers.ValidationError("O consentimento é necessário para entrar na lista.")
+            raise serializers.ValidationError(
+                "O consentimento é necessário para entrar na lista."
+            )
         return value
 
     def validate(self, attrs):

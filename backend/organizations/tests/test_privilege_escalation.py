@@ -41,7 +41,9 @@ class TestProfessionalEscalation:
     def test_professional_nao_lista_convites(self, api_client):
         org, pro = _org_com_membro_do_role("PROFESSIONAL")
         api_client.force_authenticate(user=pro)
-        response = api_client.get(reverse("organization-invitations", kwargs={"slug": org.slug}))
+        response = api_client.get(
+            reverse("organization-invitations", kwargs={"slug": org.slug})
+        )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_professional_nao_organizacao_edita(self, api_client):
@@ -59,7 +61,9 @@ class TestProfessionalEscalation:
         target, _ = _add_membro(org, "PROFESSIONAL")
         api_client.force_authenticate(user=pro)
         response = api_client.patch(
-            reverse("organization-member-detail", kwargs={"slug": org.slug, "pk": target.id}),
+            reverse(
+                "organization-member-detail", kwargs={"slug": org.slug, "pk": target.id}
+            ),
             {"role": "MANAGER"},
             format="json",
         )
@@ -72,7 +76,9 @@ class TestProfessionalEscalation:
         outro_org = OrganizationFactory(name=f"Outro Studio {uuid4().hex[:6]}")
         MembershipFactory(organization=outro_org, role="PROFESSIONAL")
         api_client.force_authenticate(user=pro)
-        response = api_client.get(reverse("organization-members", kwargs={"slug": org.slug}))
+        response = api_client.get(
+            reverse("organization-members", kwargs={"slug": org.slug})
+        )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["count"] == 1  # apenas o pro do próprio salão
 
@@ -83,7 +89,9 @@ class TestManagerLimits:
         target, _ = _add_membro(org, "PROFESSIONAL")
         api_client.force_authenticate(user=manager)
         response = api_client.patch(
-            reverse("organization-member-detail", kwargs={"slug": org.slug, "pk": target.id}),
+            reverse(
+                "organization-member-detail", kwargs={"slug": org.slug, "pk": target.id}
+            ),
             {"is_active": False},
             format="json",
         )

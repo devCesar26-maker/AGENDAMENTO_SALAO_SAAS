@@ -52,7 +52,9 @@ class NotificationEvent(TenantModel):
         related_name="notification_events",
     )
     kind = models.CharField(max_length=24, choices=Kind.choices)
-    state = models.CharField(max_length=12, choices=State.choices, default=State.PENDING)
+    state = models.CharField(
+        max_length=12, choices=State.choices, default=State.PENDING
+    )
     available_at = models.DateTimeField(default=timezone.now, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
@@ -66,4 +68,8 @@ class NotificationEvent(TenantModel):
                 name="uniq_notification_event_appointment_kind",
             )
         ]
-        indexes = [models.Index(fields=("state", "available_at"), name="notification_outbox_idx")]
+        indexes = [
+            models.Index(
+                fields=("state", "available_at"), name="notification_outbox_idx"
+            )
+        ]

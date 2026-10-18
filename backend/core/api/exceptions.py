@@ -49,10 +49,20 @@ def exception_handler(exc, context):
         # prefira o code do detail (ex.: "last_owner", "category_in_use").
         detail_code = getattr(getattr(exc, "detail", None), "code", None)
         code = (
-            detail_code if isinstance(detail_code, str) else getattr(exc, "default_code", "error")
+            detail_code
+            if isinstance(detail_code, str)
+            else getattr(exc, "default_code", "error")
         )
     detail = getattr(exc, "detail", None)
-    payload = {"error": {"code": code, "detail": _normalize_detail(detail)}}
+    if isinstance(detail, dict) and "detail" in detail:
+        error_data = {key: value for key, value in detail.items()}
+        error_data["detail"] = _normalize_detail(error_data["detail"])
+        for field in ("limit", "usage"):
+            if field in error_data:
+                error_data[field] = int(error_data[field])
+        payload = {"error": {"code": code, **error_data}}
+    else:
+        payload = {"error": {"code": code, "detail": _normalize_detail(detail)}}
 
     if code == "validation_error" and isinstance(response.data, dict):
         if "detail" not in response.data:
@@ -65,7 +75,9 @@ def exception_handler(exc, context):
             payload["error"]["detail"] = _normalize_detail(response.data["detail"])
 
     if code == "throttled" and getattr(exc, "wait", None):
-        payload["error"]["detail"] = f"Muitas tentativas. Tente novamente em {int(exc.wait)}s."
+        payload["error"][
+            "detail"
+        ] = f"Muitas tentativas. Tente novamente em {int(exc.wait)}s."
         response["Retry-After"] = str(int(exc.wait))
 
     response.data = payload

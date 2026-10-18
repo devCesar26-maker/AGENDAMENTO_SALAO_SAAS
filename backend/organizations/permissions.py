@@ -32,7 +32,9 @@ class _BaseOrganizationRolePermission(BasePermission):
 
     def has_object_permission(self, request, view, obj) -> bool:
         # obj pode ser a própria Organization ou uma entidade com FK organization.
-        organization = obj if isinstance(obj, Organization) else getattr(obj, "organization", None)
+        organization = (
+            obj if isinstance(obj, Organization) else getattr(obj, "organization", None)
+        )
         if organization is None:
             return False
         return self._has_role(request, organization)

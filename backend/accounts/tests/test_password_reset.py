@@ -18,14 +18,18 @@ CONFIRM_URL = reverse("auth-password-reset-confirm")
 class TestPasswordResetRequest:
     def test_email_existente_envia_link_para_o_console(self, api_client):
         UserFactory(email="reset@studio.com.br")
-        response = api_client.post(RESET_URL, {"email": "reset@studio.com.br"}, format="json")
+        response = api_client.post(
+            RESET_URL, {"email": "reset@studio.com.br"}, format="json"
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert len(mail.outbox) == 1
         assert "resetar-senha" in mail.outbox[0].body
 
     def test_email_inexistente_resposta_identica_e_sem_email(self, api_client):
-        response = api_client.post(RESET_URL, {"email": "fantasma@inexistente.com"}, format="json")
+        response = api_client.post(
+            RESET_URL, {"email": "fantasma@inexistente.com"}, format="json"
+        )
 
         assert response.status_code == status.HTTP_200_OK
         assert len(mail.outbox) == 0
