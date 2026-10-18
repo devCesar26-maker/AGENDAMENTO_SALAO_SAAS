@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -33,7 +32,7 @@ export function ServicesPage() {
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(form); }
 
   return <div className="app-shell">
-    <header className="topbar"><Link className="brand-lockup" to="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></Link><nav className="topnav"><Link to="/app/agenda">Agenda</Link><span className="nav-current">Serviços</span></nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button className="button-quiet" onClick={() => void logout()}>Sair</button></div></header>
+    <header className="topbar"><a className="brand-lockup" href="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></a><nav className="topnav"><a href="/app/agenda">Agenda</a><span className="nav-current">Serviços</span></nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button className="button-quiet" onClick={() => void logout()}>Sair</button></div></header>
     <main className="page-content">
       <div className="page-heading"><div><p className="eyebrow">CATÁLOGO</p><h1>Serviços</h1><p className="muted-copy">Organize o que seu espaço oferece, com duração e valores.</p></div><button className="button-primary" onClick={startCreate} disabled={!categories.data?.length}>Adicionar serviço</button></div>
       {!categories.isLoading && !categories.data?.length && <div className="notice-card">Cadastre uma categoria para começar. <button className="button-quiet" onClick={() => setCategoryOpen(true)}>Criar categoria</button></div>}

@@ -5,7 +5,6 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, errorMessage } from "../lib/api";
@@ -62,7 +61,7 @@ export function AgendaPage() {
   const onClick = (info: { event: { extendedProps: Record<string, unknown> } }) => setActive(info.event.extendedProps.appointment as Appointment);
   const dataError = appointmentQuery.isError || servicesQuery.isError || professionalsQuery.isError || customersQuery.isError;
   return <div className="app-shell">
-    <header className="topbar"><Link className="brand-lockup" to="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></Link><nav className="topnav"><span className="nav-current">Agenda</span>{user?.role !== "PROFESSIONAL" && <Link to="/app/servicos">Serviços</Link>}</nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button onClick={() => void logout()} className="button-quiet">Sair</button></div></header>
+    <header className="topbar"><a className="brand-lockup" href="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></a><nav className="topnav"><span className="nav-current">Agenda</span>{user?.role !== "PROFESSIONAL" && <a href="/app/servicos">Serviços</a>}</nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button onClick={() => void logout()} className="button-quiet">Sair</button></div></header>
     <main className="page-content"><div className="page-heading"><div><p className="eyebrow">VISÃO GERAL</p><h1>Agenda</h1><p className="muted-copy">Acompanhe os atendimentos do seu espaço.</p></div><button onClick={() => openCreate()} className="button-primary">Novo agendamento</button></div>
       {appointmentQuery.isLoading ? <p role="status" className="rounded-xl bg-white p-8 text-center">Carregando agenda…</p> : dataError ? <p role="alert" className="rounded-xl bg-white p-8 text-center text-red-700">Não foi possível carregar dados da agenda. {errorMessage(appointmentQuery.error)}</p> : <><div className="overflow-x-auto rounded-xl bg-white p-2 shadow-sm sm:p-4"><FullCalendar plugins={[dayGridPlugin,timeGridPlugin,interactionPlugin]} initialView="timeGridWeek" headerToolbar={{ left:"prev,next today", center:"title", right:"timeGridDay,timeGridWeek,dayGridMonth" }} locale="pt-br" selectable select={openCreate} editable eventDrop={onDrop} eventClick={onClick} events={events} datesSet={(arg) => setSelectedDate(localDate(arg.view.currentStart))} height="auto" /></div>{events.length === 0 && <p className="mt-3 text-center text-sm text-slate-600">Nenhum agendamento neste período.</p>}</>}
     </main>
