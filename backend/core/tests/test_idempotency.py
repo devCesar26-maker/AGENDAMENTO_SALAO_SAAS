@@ -35,9 +35,7 @@ def test_comando_remove_chaves_expiradas_e_preserva_chaves_ativas():
 
 
 @pytest.mark.django_db
-def test_chave_e_resultado_sao_escopados_por_organizacao(
-    organization, other_organization
-):
+def test_chave_e_resultado_sao_escopados_por_organizacao(organization, other_organization):
     first, replayed = execute_idempotently(
         organization=organization,
         context="test_context",
@@ -57,9 +55,7 @@ def test_chave_e_resultado_sao_escopados_por_organizacao(
         context="test_context",
         key="same-client-key",
         data={"value": 1},
-        operation=lambda: pytest.fail(
-            "A operação idempotente foi executada novamente."
-        ),
+        operation=lambda: pytest.fail("A operação idempotente foi executada novamente."),
     )
 
     assert first == {"appointment": 101}

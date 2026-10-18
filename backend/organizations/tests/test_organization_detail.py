@@ -47,9 +47,7 @@ class TestOrganizationRetrieve:
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert org.name not in str(response.content)
         # Slug inexistente: 404 (recurso não revelado):
-        response = api_client.get(
-            reverse("organization-detail", kwargs={"slug": "nao-existe-sl"})
-        )
+        response = api_client.get(reverse("organization-detail", kwargs={"slug": "nao-existe-sl"}))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -92,9 +90,7 @@ class TestOrganizationUpdate:
     def test_apenas_owner_pode_editar_slug(self, api_client, organization):
         manager = add_member(organization, "MANAGER")
         api_client.force_authenticate(user=manager)
-        response = api_client.patch(
-            org_url(organization), {"slug": "novo-slug"}, format="json"
-        )
+        response = api_client.patch(org_url(organization), {"slug": "novo-slug"}, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
         organization.refresh_from_db()
         assert organization.slug != "novo-slug"
@@ -102,9 +98,7 @@ class TestOrganizationUpdate:
     def test_slug_duplicado_rejeitado(self, api_client, organization):
         OrganizationFactory(name="Outro Studio")
         api_client.force_authenticate(user=organization._owner)
-        response = api_client.patch(
-            org_url(organization), {"slug": "outro-studio"}, format="json"
-        )
+        response = api_client.patch(org_url(organization), {"slug": "outro-studio"}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         organization.refresh_from_db()
         assert organization.slug != "outro-studio"

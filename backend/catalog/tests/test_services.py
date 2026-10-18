@@ -90,9 +90,7 @@ class TestListarServicos:
         ServiceFactory(organization=other_organization)
         assert auth_client.get(list_url()).json()["count"] == 0
 
-    def test_sem_n_plus_1_na_listagem(
-        self, auth_client, organization, django_assert_num_queries
-    ):
+    def test_sem_n_plus_1_na_listagem(self, auth_client, organization, django_assert_num_queries):
         categoria = ServiceCategoryFactory(organization=organization)
         for _ in range(5):
             ServiceFactory(organization=organization, category=categoria)
@@ -107,9 +105,7 @@ class TestEditarExcluirServico:
     def test_manager_edita(self, manager_client, organization):
         categoria = ServiceCategoryFactory(organization=organization)
         service = ServiceFactory(organization=organization, category=categoria)
-        response = manager_client.patch(
-            detail_url(service.pk), {"price": "999.90"}, format="json"
-        )
+        response = manager_client.patch(detail_url(service.pk), {"price": "999.90"}, format="json")
         assert response.status_code == status.HTTP_200_OK
         service.refresh_from_db()
         assert service.price == Decimal("999.90")
@@ -122,9 +118,7 @@ class TestEditarExcluirServico:
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_idor_patch_de_outro_salao(
-        self, professional_client, organization, other_organization
-    ):
+    def test_idor_patch_de_outro_salao(self, professional_client, organization, other_organization):
         """IDOR: PATCH em serviço do salão B vira 404 (queryset escopado)."""
         service_b = ServiceFactory(organization=other_organization)
         response = professional_client.patch(
@@ -140,7 +134,4 @@ class TestEditarExcluirServico:
     def test_excluir(self, auth_client, organization):
         categoria = ServiceCategoryFactory(organization=organization)
         service = ServiceFactory(organization=organization, category=categoria)
-        assert (
-            auth_client.delete(detail_url(service.pk)).status_code
-            == status.HTTP_204_NO_CONTENT
-        )
+        assert auth_client.delete(detail_url(service.pk)).status_code == status.HTTP_204_NO_CONTENT

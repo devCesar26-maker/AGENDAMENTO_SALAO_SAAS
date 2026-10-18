@@ -67,9 +67,7 @@ class ProfessionalObjectPermission(_MemberBase):
             return True
         if membership.role == Membership.Role.PROFESSIONAL:
             professional = (
-                obj
-                if isinstance(obj, Professional)
-                else getattr(obj, "professional", None)
+                obj if isinstance(obj, Professional) else getattr(obj, "professional", None)
             )
             return professional is not None and professional.user_id == request.user.id
         return False

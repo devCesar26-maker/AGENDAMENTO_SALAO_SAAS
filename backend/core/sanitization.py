@@ -32,8 +32,6 @@ def sanitize_free_text(value: str | None) -> str:
         if stripped == cleaned:
             break
         cleaned = stripped
-    cleaned = "\n".join(
-        _MULTIPLE_SPACES.sub(" ", line).strip() for line in cleaned.splitlines()
-    )
+    cleaned = "\n".join(_MULTIPLE_SPACES.sub(" ", line).strip() for line in cleaned.splitlines())
     cleaned = _MULTIPLE_BLANK_LINES.sub("\n\n", cleaned)
     return cleaned.strip()

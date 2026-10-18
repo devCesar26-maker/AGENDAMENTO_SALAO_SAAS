@@ -18,9 +18,7 @@ class Subscription(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="subscription",
     )
-    plan = models.CharField(
-        "plano", max_length=10, choices=Plan.choices, default=Plan.FREE
-    )
+    plan = models.CharField("plano", max_length=10, choices=Plan.choices, default=Plan.FREE)
     is_active = models.BooleanField("ativa", default=True)
     provider = models.CharField("provedor", max_length=20, blank=True, default="")
     provider_customer_id = models.CharField(
@@ -29,9 +27,7 @@ class Subscription(TimeStampedModel):
     provider_subscription_id = models.CharField(
         "id da assinatura no provedor", max_length=120, blank=True, default=""
     )
-    current_period_end = models.DateTimeField(
-        "fim do período atual", null=True, blank=True
-    )
+    current_period_end = models.DateTimeField("fim do período atual", null=True, blank=True)
 
     class Meta:
         verbose_name = "assinatura"

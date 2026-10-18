@@ -35,9 +35,7 @@ class Organization(TimeStampedModel):
             "pode ser editado depois. Usado nas URLs."
         ),
     )
-    timezone = models.CharField(
-        "fuso horário", max_length=64, default="America/Sao_Paulo"
-    )
+    timezone = models.CharField("fuso horário", max_length=64, default="America/Sao_Paulo")
     phone = models.CharField("telefone", max_length=20, blank=True)
     address = models.CharField("endereço", max_length=255, blank=True)
     working_hours = models.JSONField(
@@ -61,9 +59,7 @@ class Organization(TimeStampedModel):
         if not self.slug:
             base = slugify(self.name)[:54] or "salao"
             candidate, i = base, 2
-            while (
-                type(self).objects.exclude(pk=self.pk).filter(slug=candidate).exists()
-            ):
+            while type(self).objects.exclude(pk=self.pk).filter(slug=candidate).exists():
                 candidate = f"{base[:55]}-{i}"
                 i += 1
             self.slug = candidate
@@ -86,9 +82,7 @@ class Membership(TimeStampedModel):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="memberships"
     )
-    role = models.CharField(
-        "papel", max_length=20, choices=Role.choices, default=Role.PROFESSIONAL
-    )
+    role = models.CharField("papel", max_length=20, choices=Role.choices, default=Role.PROFESSIONAL)
     is_active = models.BooleanField(
         "ativo",
         default=True,

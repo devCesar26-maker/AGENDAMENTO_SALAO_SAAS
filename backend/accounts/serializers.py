@@ -21,9 +21,7 @@ class RegisterSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     organization_name = serializers.CharField(max_length=120)
     vertical = serializers.ChoiceField(choices=("SALAO", "BARBEARIA"))
-    organization_phone = serializers.CharField(
-        required=False, allow_blank=True, max_length=20
-    )
+    organization_phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
 
     def validate_email(self, value: str) -> str:
         from django.contrib.auth import get_user_model
@@ -104,15 +102,11 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
         User = get_user_model()
         try:
-            user_id = force_str(
-                urlsafe_base64_decode(self.initial_data.get("uidb64", ""))
-            )
+            user_id = force_str(urlsafe_base64_decode(self.initial_data.get("uidb64", "")))
             user = User.objects.get(pk=user_id)
         except (User.DoesNotExist, ValueError, DjangoUnicodeDecodeError, TypeError):
             return None
-        if not default_token_generator.check_token(
-            user, self.initial_data.get("token", "")
-        ):
+        if not default_token_generator.check_token(user, self.initial_data.get("token", "")):
             return None
         return user
 
@@ -150,9 +144,7 @@ class MeSerializer(serializers.Serializer):
         return [
             {
                 "id": membership.id,
-                "organization": MemberOrganizationSerializer(
-                    membership.organization
-                ).data,
+                "organization": MemberOrganizationSerializer(membership.organization).data,
                 "role": membership.role,
                 "is_active": membership.is_active,
                 "created_at": membership.created_at,
@@ -166,8 +158,4 @@ class MeSerializer(serializers.Serializer):
             and "memberships" in user._prefetched_objects_cache
         ):
             return list(user._prefetched_objects_cache["memberships"])
-        return list(
-            user.memberships.filter(is_active=True).select_related(
-                "user", "organization"
-            )
-        )
+        return list(user.memberships.filter(is_active=True).select_related("user", "organization"))

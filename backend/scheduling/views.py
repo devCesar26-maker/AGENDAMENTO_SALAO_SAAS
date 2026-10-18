@@ -37,12 +37,8 @@ class AvailabilityView(APIView):
         query.is_valid(raise_exception=True)
         organization = request.organization
         service_ids = query.validated_data["services"]
-        services_qs = Service.objects.filter(
-            organization=organization, pk__in=service_ids
-        )
-        service_map = {
-            service.pk: service for service in services_qs.select_related("category")
-        }
+        services_qs = Service.objects.filter(organization=organization, pk__in=service_ids)
+        service_map = {service.pk: service for service in services_qs.select_related("category")}
         if len(service_map) != len(service_ids):
             return Response(
                 {"detail": "Um ou mais serviços não pertencem a esta organização."},
@@ -89,9 +85,7 @@ class AvailabilityView(APIView):
 
 
 @extend_schema(tags=["scheduling"])
-class AppointmentListCreateView(
-    TenantSerializerContextMixin, generics.ListCreateAPIView
-):
+class AppointmentListCreateView(TenantSerializerContextMixin, generics.ListCreateAPIView):
     serializer_class = AppointmentSerializer
     pagination_class = DefaultPagination
     permission_classes = [MembershipRequired]
@@ -117,9 +111,7 @@ class AppointmentListCreateView(
             try:
                 date = Date.fromisoformat(date)
             except ValueError as exc:
-                raise ValidationError(
-                    {"date": "Informe a data no formato YYYY-MM-DD."}
-                ) from exc
+                raise ValidationError({"date": "Informe a data no formato YYYY-MM-DD."}) from exc
         professional = params.get("professional")
         customer = params.get("customer")
         for field, value in (("professional", professional), ("customer", customer)):
@@ -136,9 +128,7 @@ class AppointmentListCreateView(
             customer=customer,
         )
         if membership.role == Membership.Role.PROFESSIONAL:
-            queryset = queryset.filter(
-                items__professional__user=self.request.user
-            ).distinct()
+            queryset = queryset.filter(items__professional__user=self.request.user).distinct()
         return queryset
 
     def create(self, request, *args, **kwargs):
@@ -153,9 +143,7 @@ class AppointmentListCreateView(
             item["professional"].user_id != request.user.pk for item in items
         ):
             return Response(
-                {
-                    "detail": "Profissionais só podem agendar serviços no próprio perfil."
-                },
+                {"detail": "Profissionais só podem agendar serviços no próprio perfil."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         appointment = services.create_appointment(
@@ -167,9 +155,7 @@ class AppointmentListCreateView(
             notes=serializer.validated_data.get("notes", ""),
         )
         appointment = selectors.get_appointment(organization, appointment.pk)
-        return Response(
-            AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED
-        )
+        return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["scheduling"])
@@ -186,9 +172,7 @@ class AppointmentDetailView(generics.RetrieveAPIView):
             .prefetch_related("items__service", "items__professional")
         )
         if membership.role == Membership.Role.PROFESSIONAL:
-            queryset = queryset.filter(
-                items__professional__user=self.request.user
-            ).distinct()
+            queryset = queryset.filter(items__professional__user=self.request.user).distinct()
         return queryset
 
 
@@ -200,13 +184,9 @@ class AppointmentStatusView(generics.GenericAPIView):
 
     def get_queryset(self):
         organization, membership = resolve_membership(self.request)
-        queryset = Appointment.objects.filter(
-            organization=organization
-        ).prefetch_related("items")
+        queryset = Appointment.objects.filter(organization=organization).prefetch_related("items")
         if membership.role == Membership.Role.PROFESSIONAL:
-            queryset = queryset.filter(
-                items__professional__user=self.request.user
-            ).distinct()
+            queryset = queryset.filter(items__professional__user=self.request.user).distinct()
         return queryset
 
     def patch(self, request, *args, **kwargs):
@@ -233,9 +213,7 @@ class AppointmentRescheduleView(generics.GenericAPIView):
         organization, membership = resolve_membership(self.request)
         queryset = Appointment.objects.filter(organization=organization)
         if membership.role == Membership.Role.PROFESSIONAL:
-            queryset = queryset.filter(
-                items__professional__user=self.request.user
-            ).distinct()
+            queryset = queryset.filter(items__professional__user=self.request.user).distinct()
         return queryset
 
     def patch(self, request, *args, **kwargs):
@@ -260,9 +238,7 @@ class AppointmentCancelView(AppointmentStatusView):
 
     def post(self, request, *args, **kwargs):
         appointment = self.get_object()
-        appointment = services.change_appointment_status(
-            appointment, Appointment.Status.CANCELED
-        )
+        appointment = services.change_appointment_status(appointment, Appointment.Status.CANCELED)
         return Response(
             AppointmentSerializer(
                 selectors.get_appointment(request.organization, appointment.pk)

@@ -31,9 +31,7 @@ class TestTenantScopedQuerySet:
         result = Membership.objects.for_user(user)
 
         assert org_ativa.id in set(result.values_list("organization_id", flat=True))
-        assert org_inativa.id not in set(
-            result.values_list("organization_id", flat=True)
-        )
+        assert org_inativa.id not in set(result.values_list("organization_id", flat=True))
 
     def test_for_user_sem_membresia_retorna_vazio(self):
         user = UserFactory()

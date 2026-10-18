@@ -15,9 +15,7 @@ def members_url(org):
 
 
 def member_url(org, member):
-    return reverse(
-        "organization-member-detail", kwargs={"slug": org.slug, "pk": member.id}
-    )
+    return reverse("organization-member-detail", kwargs={"slug": org.slug, "pk": member.id})
 
 
 def add_member(org, role="PROFESSIONAL"):
@@ -26,9 +24,7 @@ def add_member(org, role="PROFESSIONAL"):
 
 
 class TestListarMembros:
-    def test_lista_membros_com_paginacao_e_dados_do_user(
-        self, api_client, organization
-    ):
+    def test_lista_membros_com_paginacao_e_dados_do_user(self, api_client, organization):
         for _ in range(4):
             add_member(organization)
         api_client.force_authenticate(user=organization._owner)
@@ -57,9 +53,7 @@ class TestListarMembros:
             add_member(organization)
         api_client.force_authenticate(user=organization._owner)
 
-        with django_assert_num_queries(
-            4
-        ):  # auth + blacklist + sessão + 1 query paginada
+        with django_assert_num_queries(4):  # auth + blacklist + sessão + 1 query paginada
             response = api_client.get(members_url(organization))
 
         assert response.status_code == status.HTTP_200_OK
@@ -101,10 +95,7 @@ class TestGerenciarMembros:
 
         # O membro desativado perde o acesso (fail-closed):
         api_client.force_authenticate(user=user)
-        assert (
-            api_client.get(members_url(organization)).status_code
-            == status.HTTP_403_FORBIDDEN
-        )
+        assert api_client.get(members_url(organization)).status_code == status.HTTP_403_FORBIDDEN
 
     def test_nao_permitido_desativar_ultimo_owner(self, auth_client, organization):
         owner_membership = organization.memberships.get(user=organization._owner)

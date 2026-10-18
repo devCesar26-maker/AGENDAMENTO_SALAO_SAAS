@@ -42,9 +42,7 @@ def register_with_organization(
 
     from catalog.seed_data import seed_catalog
 
-    slug_base = (
-        f"{slugify(organization_name)}-{slugify(first_name)}"[:60].strip("-") or "salao"
-    )
+    slug_base = f"{slugify(organization_name)}-{slugify(first_name)}"[:60].strip("-") or "salao"
     slug, suffix = slug_base, 2
     while Organization.objects.filter(slug=slug).exists():
         ending = f"-{suffix}"
@@ -59,9 +57,7 @@ def register_with_organization(
         phone=organization_phone,
     )
     seed_catalog(organization)
-    Membership.objects.create(
-        user=user, organization=organization, role=Membership.Role.OWNER
-    )
+    Membership.objects.create(user=user, organization=organization, role=Membership.Role.OWNER)
     return user, organization
 
 
@@ -171,9 +167,7 @@ def blacklist_refresh(token_string: str) -> None:
     try:
         token = RefreshToken(token_string)
     except TokenError as err:
-        raise BusinessError(
-            "Refresh token inválido ou expirado.", code="invalid_refresh"
-        ) from err
+        raise BusinessError("Refresh token inválido ou expirado.", code="invalid_refresh") from err
     token.blacklist()
 
 

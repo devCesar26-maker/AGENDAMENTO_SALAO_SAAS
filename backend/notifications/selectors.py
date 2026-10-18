@@ -15,9 +15,9 @@ def appointment_for_notification(appointment_id):
         .prefetch_related(
             Prefetch(
                 "items",
-                queryset=AppointmentItem.objects.select_related(
-                    "service", "professional"
-                ).order_by("order"),
+                queryset=AppointmentItem.objects.select_related("service", "professional").order_by(
+                    "order"
+                ),
             )
         )
         .filter(pk=appointment_id)
@@ -34,9 +34,9 @@ def reminder_candidates(window_start, window_end):
         .prefetch_related(
             Prefetch(
                 "items",
-                queryset=AppointmentItem.objects.select_related(
-                    "service", "professional"
-                ).order_by("order"),
+                queryset=AppointmentItem.objects.select_related("service", "professional").order_by(
+                    "order"
+                ),
             )
         )
         .annotate(has_item_in_window=Exists(matching_item))
