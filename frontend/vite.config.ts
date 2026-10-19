@@ -3,6 +3,9 @@ import { loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+// Keep date and time formatting deterministic for the salon's timezone in tests and CI.
+process.env.TZ = "America/Sao_Paulo";
+
 // Proxy /api evita CORS e casca de URL no desenvolvimento local (fora do Docker).
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
