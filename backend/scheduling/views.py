@@ -13,6 +13,7 @@ from core.tenant import (
     TenantSerializerContextMixin,
     resolve_membership,
 )
+from customers.models import Customer
 from organizations.models import Membership
 from scheduling import selectors, services
 from scheduling.models import Appointment
@@ -146,9 +147,30 @@ class AppointmentListCreateView(TenantSerializerContextMixin, generics.ListCreat
                 {"detail": "Profissionais só podem agendar serviços no próprio perfil."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        data = serializer.validated_data
+        customer = data.get("customer")
+        if "dependente" in data:
+            attendee = data["dependente"]
+            customer = (
+                Customer.objects.filter(
+                    organization=organization,
+                    responsavel=data["responsavel"],
+                    name__iexact=attendee["name"],
+                )
+                .order_by("pk")
+                .first()
+            )
+            if customer is None:
+                customer = Customer.objects.create(
+                    organization=organization,
+                    responsavel=data["responsavel"],
+                    name=attendee["name"],
+                    phone=attendee.get("phone", ""),
+                    email=attendee.get("email", "").strip().lower(),
+                )
         appointment = services.create_appointment(
             organization=organization,
-            customer=serializer.validated_data["customer"],
+            customer=customer,
             items=items,
             desired_start=serializer.validated_data["start_at"],
             membership=membership,

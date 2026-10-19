@@ -72,7 +72,11 @@ class AppointmentItemInputSerializer(serializers.Serializer):
 
 
 class AppointmentCreateSerializer(serializers.Serializer):
-    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), required=False)
+    responsavel = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(), required=False
+    )
+    dependente = serializers.DictField(required=False)
     items = AppointmentItemInputSerializer(many=True, allow_empty=False, max_length=5)
     start_at = serializers.DateTimeField()
     notes = serializers.CharField(required=False, allow_blank=True)
@@ -81,7 +85,8 @@ class AppointmentCreateSerializer(serializers.Serializer):
         super().__init__(*args, **kwargs)
         organization = self.context.get("organization")
         if organization is not None:
-            self.fields["customer"].queryset = Customer.objects.filter(organization=organization)
+            for field in ("customer", "responsavel"):
+                self.fields[field].queryset = Customer.objects.filter(organization=organization)
             self.fields["items"].child.fields["service"].queryset = Service.objects.filter(
                 organization=organization
             )
@@ -93,6 +98,26 @@ class AppointmentCreateSerializer(serializers.Serializer):
         if customer.organization_id != self.context["organization"].id:
             raise serializers.ValidationError("Cliente não pertence a esta organização.")
         return customer
+
+    def validate(self, attrs):
+        dependent = attrs.get("dependente")
+        responsible = attrs.get("responsavel")
+        customer = attrs.get("customer")
+        if dependent:
+            if not responsible or customer:
+                raise serializers.ValidationError(
+                    "Para criar dependente, informe responsavel e dependente, sem customer."
+                )
+            if responsible.responsavel_id:
+                raise serializers.ValidationError({"responsavel": "Responsável já é dependente."})
+            dependent_serializer = DependentInputSerializer(data=dependent)
+            dependent_serializer.is_valid(raise_exception=True)
+            attrs["dependente"] = dependent_serializer.validated_data
+        elif not customer or responsible:
+            raise serializers.ValidationError(
+                "Informe um customer existente ou os dados do dependente."
+            )
+        return attrs
 
     def validate_items(self, items):
         organization = self.context["organization"]
@@ -125,11 +150,12 @@ class AppointmentCreateSerializer(serializers.Serializer):
 
 
 class PublicAppointmentCreateSerializer(serializers.Serializer):
-    """Entrada pública: identificação do cliente, consentimento e serviços."""
+    """Entrada pública; atendido diferente é reaproveitado por nome no tenant/responsável."""
 
     name = serializers.CharField(max_length=120, trim_whitespace=True)
     phone = serializers.CharField(max_length=20, trim_whitespace=True)
     email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    atendido = serializers.DictField(required=False)
     consent = serializers.BooleanField()
     items = AppointmentItemInputSerializer(many=True, allow_empty=False, max_length=5)
     start_at = serializers.DateTimeField()
@@ -172,6 +198,25 @@ class PublicAppointmentCreateSerializer(serializers.Serializer):
         if len({item["order"] for item in items}) != len(items):
             raise serializers.ValidationError("A ordem dos serviços não pode se repetir.")
         return sorted(items, key=lambda item: item["order"])
+
+    def validate_atendido(self, value):
+        serializer = DependentInputSerializer(data=value)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+
+class DependentInputSerializer(serializers.Serializer):
+    """Dados do atendido; identidade reutilizada por nome dentro do tenant."""
+
+    name = serializers.CharField(max_length=120)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+
+    def validate_name(self, value):
+        value = sanitize_free_text(value)
+        if len(value) < 2:
+            raise serializers.ValidationError("Informe um nome válido para o atendido.")
+        return value
 
 
 class AppointmentItemSerializer(serializers.ModelSerializer):

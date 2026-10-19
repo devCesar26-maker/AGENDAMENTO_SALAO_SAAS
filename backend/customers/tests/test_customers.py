@@ -1,6 +1,7 @@
 """Testes de clientes: CRUD, busca, consentimento LGPD e isolamento (IDOR)."""
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework import status
 
@@ -27,6 +28,19 @@ PAYLOAD = {
     "email": "maria@exemplo.com.br",
     "birthday": "1990-05-10",
 }
+
+
+def test_customer_rejeita_autorreferencia_e_cadeia_de_responsaveis(organization):
+    responsible = CustomerFactory(organization=organization)
+    dependent = CustomerFactory(organization=organization, responsavel=responsible)
+
+    dependent.responsavel = dependent
+    with pytest.raises(ValidationError):
+        dependent.full_clean()
+
+    third = CustomerFactory(organization=organization, responsavel=dependent)
+    with pytest.raises(ValidationError):
+        third.full_clean()
 
 
 class TestCriarCliente:

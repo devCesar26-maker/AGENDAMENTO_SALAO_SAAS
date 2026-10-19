@@ -48,7 +48,8 @@ def _appointment_email_context(appointment):
 
 
 def _send_appointment_email(appointment, *, subject_template, body_template):
-    if not appointment.customer.email:
+    recipient = appointment.customer.notification_contact.email
+    if not recipient:
         return False
     context = _appointment_email_context(appointment)
     subject = render_to_string(subject_template, context).strip().replace("\n", " ")
@@ -59,14 +60,14 @@ def _send_appointment_email(appointment, *, subject_template, body_template):
         context=f"notification_{notification_type}",
         key=str(appointment.pk),
         data={
-            "recipient": appointment.customer.email,
+            "recipient": recipient,
             "subject": subject,
             "body": body,
         },
     )
     if claim_id is None:
         return False
-    delivered = send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email])
+    delivered = send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
     if delivered != 1:
         raise RuntimeError("O backend de e-mail não confirmou a notificação.")
     complete_side_effect(claim_id)
@@ -101,6 +102,9 @@ def send_appointment_reminders():
 def _send_reminder_batch(appointments, now):
     messages = []
     for appointment in appointments:
+        recipient = appointment.customer.notification_contact.email
+        if not recipient:
+            continue
         context = _appointment_email_context(appointment)
         subject = (
             render_to_string("notifications/email/appointment_reminder_subject.txt", context)
@@ -114,12 +118,14 @@ def _send_reminder_batch(appointments, now):
                 subject,
                 body,
                 {
-                    "recipient": appointment.customer.email,
+                    "recipient": recipient,
                     "subject": subject,
                     "body": body,
                 },
             )
         )
+    if not messages:
+        return 0
     claims = claim_side_effects(
         organization=appointments[0].organization,
         context="notification_reminder",
@@ -141,7 +147,10 @@ def _send_reminder_batch(appointments, now):
         pending_claims.remove(claim_id)
         try:
             delivered = send_mail(
-                subject, body, settings.DEFAULT_FROM_EMAIL, [appointment.customer.email]
+                subject,
+                body,
+                settings.DEFAULT_FROM_EMAIL,
+                [appointment.customer.notification_contact.email],
             )
             if delivered != 1:
                 raise RuntimeError("O backend de e-mail não confirmou o lembrete.")

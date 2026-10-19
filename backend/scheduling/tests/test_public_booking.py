@@ -93,6 +93,37 @@ def test_reserva_publica_grava_consentimento_e_forca_origem(api_client, organiza
 
 
 @pytest.mark.django_db
+def test_reserva_publica_cria_atendido_dependente_do_responsavel(api_client, organization):
+    _, service, professional = make_public_schedule(organization)
+    start_at = api_client.get(
+        reverse("public-availability"),
+        {"services": service.pk, "professional": professional.pk, "date": BOOKING_DAY},
+        **public_headers(organization),
+    ).json()["slots"][0]["start_at"]
+    response = api_client.post(
+        reverse("public-appointment-create"),
+        {
+            "name": "Responsável",
+            "phone": "11999991111",
+            "email": "responsavel@example.com",
+            "atendido": {"name": "Filho", "phone": "", "email": ""},
+            "consent": True,
+            "start_at": start_at,
+            "items": [{"service": service.pk, "professional": professional.pk, "order": 0}],
+        },
+        format="json",
+        **public_headers(organization),
+    )
+    assert response.status_code == 201, response.json()
+    responsible = Customer.objects.get(organization=organization, phone="11999991111")
+    dependent = Customer.objects.get(organization=organization, name="Filho")
+    appointment = Appointment.objects.get(pk=response.json()["id"])
+    assert dependent.responsavel_id == responsible.pk
+    assert dependent.phone == dependent.email == ""
+    assert appointment.customer_id == dependent.pk
+
+
+@pytest.mark.django_db
 def test_chave_idempotente_retorna_a_mesma_reserva_sem_duplicar(api_client, organization):
     _, service, professional = make_public_schedule(organization)
     start_at = api_client.get(

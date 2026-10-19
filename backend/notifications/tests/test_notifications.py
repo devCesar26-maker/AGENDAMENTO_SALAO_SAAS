@@ -131,6 +131,29 @@ def test_tarefa_de_confirmacao_repetida_envia_email_uma_unica_vez(organization):
 
 
 @pytest.mark.django_db
+def test_notificacao_de_dependente_usa_email_do_responsavel(organization):
+    _, service, professional, _, start_at = make_schedule(organization)
+    responsible = CustomerFactory(organization=organization, email="pai@example.com")
+    dependent = CustomerFactory(
+        organization=organization,
+        name="Filho",
+        phone="",
+        email="",
+        responsavel=responsible,
+    )
+    appointment = create_appointment(
+        organization=organization,
+        customer=dependent,
+        items=[{"service": service, "professional": professional, "order": 0}],
+        desired_start=start_at,
+        membership=organization.memberships.first(),
+    )
+
+    assert send_appointment_confirmation.run(appointment.pk) is True
+    assert mail.outbox[-1].to == [responsible.email]
+
+
+@pytest.mark.django_db
 def test_outbox_reagenda_evento_apos_falha_temporaria_de_smtp(organization):
     _, service, professional, customer, start_at = make_schedule(organization)
     appointment = create_appointment(

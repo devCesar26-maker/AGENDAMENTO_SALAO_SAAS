@@ -11,7 +11,7 @@ from scheduling.models import Appointment, AppointmentItem
 
 def appointment_for_notification(appointment_id):
     return (
-        Appointment.objects.select_related("organization", "customer")
+        Appointment.objects.select_related("organization", "customer", "customer__responsavel")
         .prefetch_related(
             Prefetch(
                 "items",
@@ -30,7 +30,7 @@ def reminder_candidates(window_start, window_end):
         appointment_id=OuterRef("pk"), start_at__range=(window_start, window_end)
     )
     return (
-        Appointment.objects.select_related("organization", "customer")
+        Appointment.objects.select_related("organization", "customer", "customer__responsavel")
         .prefetch_related(
             Prefetch(
                 "items",
@@ -41,9 +41,9 @@ def reminder_candidates(window_start, window_end):
         )
         .annotate(has_item_in_window=Exists(matching_item))
         .filter(
+            Q(customer__email__gt="") | Q(customer__responsavel__email__gt=""),
             status__in=[Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED],
             reminder_sent_at__isnull=True,
-            customer__email__gt="",
             has_item_in_window=True,
         )
     )

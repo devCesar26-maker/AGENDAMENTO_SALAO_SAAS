@@ -278,6 +278,26 @@ class PublicAppointmentCreateView(PublicAPIView):
                 customer.lgpd_consent = True
                 customer.lgpd_consent_at = now
                 customer.save(update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"])
+                attendee = data.get("atendido")
+                if attendee and attendee["name"].casefold() != customer.name.casefold():
+                    dependent = (
+                        Customer.objects.filter(
+                            organization=organization,
+                            responsavel=customer,
+                            name__iexact=attendee["name"],
+                        )
+                        .order_by("pk")
+                        .first()
+                    )
+                    if dependent is None:
+                        dependent = Customer.objects.create(
+                            organization=organization,
+                            responsavel=customer,
+                            name=attendee["name"],
+                            phone=attendee.get("phone", ""),
+                            email=attendee.get("email", "").strip().lower(),
+                        )
+                    customer = dependent
                 appointment = services.create_appointment(
                     organization=organization,
                     customer=customer,
@@ -310,6 +330,7 @@ class PublicAppointmentCreateView(PublicAPIView):
                         "name": data["name"],
                         "phone": data["phone"],
                         "email": data.get("email", ""),
+                        "atendido": data.get("atendido", {}),
                         "consent": data["consent"],
                         "start_at": data["start_at"].isoformat(),
                         "items": [
