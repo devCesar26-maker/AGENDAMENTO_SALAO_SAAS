@@ -339,6 +339,20 @@ Essa preferência local ainda não é uma configuração compartilhada entre mem
 nem aparece no link público de reservas; isso depende de persistência de marca
 por organização no backend e armazenamento de imagem.
 
+## Hosts permitidos por ambiente
+
+No Compose de desenvolvimento, `backend/.env` define `DJANGO_ALLOWED_HOSTS` e é
+carregado pelo serviço `api`. Inclua `localhost`, `127.0.0.1` e `api`: o último
+é o nome DNS interno usado pelo proxy do Vite (`http://api:8000`). O valor de
+`Host` pode chegar como `api:8000`, mas o Django separa a porta antes de validar
+`ALLOWED_HOSTS`; configure apenas `api`, sem a porta.
+
+Em produção, configure `DJANGO_ALLOWED_HOSTS` no ambiente de implantação com
+os domínios públicos reais da API e do site, conforme o proxy e o domínio
+configurado. Não inclua `api` a menos que esse seja realmente um hostname
+público e nunca use `*`. O settings de produção exige a variável e valida
+`PUBLIC_BASE_DOMAIN` separadamente.
+
 ## Onde o access token mora no frontend (decisão)
 
 - **Access token**: **em memória apenas** (ex.: um `useState`/var de módulo). NUNCA

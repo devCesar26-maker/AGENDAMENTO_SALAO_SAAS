@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
 import { tenantSlugForHostname } from "./lib/useTenantSlug";
 
 const AgendaPage = lazy(() =>
@@ -30,6 +31,8 @@ export default function App() {
           <Suspense fallback={<div className="p-6 text-center text-slate-600">Carregando…</div>}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               <Route
                 path="/app/agenda"
                 element={
