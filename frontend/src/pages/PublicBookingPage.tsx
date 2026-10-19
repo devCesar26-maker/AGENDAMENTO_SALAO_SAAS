@@ -1,90 +1,31 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { AppointmentWizard, type BookingData } from "../components/AppointmentWizard";
 import { api, errorMessage } from "../lib/api";
 import { useTenantSlug } from "../lib/useTenantSlug";
 
-type Row<T> = T[] | { results: T[] };
-type Service = { id: number; name: string; duration_minutes: number; price: string };
-type Professional = { id: number; name: string; photo?: string; services: number[] };
-type Slot = { start_at: string; items: { service: number; professional: number; start_at: string; end_at: string }[] };
-const rows = <T,>(data: Row<T>) => Array.isArray(data) ? data : data.results;
-const schema = z.object({ name: z.string().trim().min(2, "Informe seu nome"), phone: z.string().trim().min(8, "Informe um telefone válido"), email: z.union([z.literal(""), z.string().email("E-mail inválido")]), consent: z.literal(true, { error: "É necessário aceitar o uso dos dados para confirmar" }) });
-type CustomerInput = z.infer<typeof schema>;
-const dateString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-
 export function PublicBookingPage() {
   const slug = useTenantSlug();
-  const [serviceIds, setServiceIds] = useState<number[]>([]);
-  const [waitlistServiceId, setWaitlistServiceId] = useState("");
-  const [professional, setProfessional] = useState("any");
-  const [date, setDate] = useState(dateString(new Date()));
-  const [slot, setSlot] = useState("");
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
-  const [completionTitle, setCompletionTitle] = useState("Solicitação registrada");
+  const [completionTitle, setCompletionTitle] = useState("Reserva solicitada");
   const [completionMessage, setCompletionMessage] = useState("");
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CustomerInput>({ resolver: zodResolver(schema) });
   const tenantConfig = { headers: { "X-Tenant-Slug": slug ?? "" } };
-  const serviceQuery = useQuery({ queryKey: ["public-services", slug], enabled: !!slug, queryFn: async () => (await api.get<{services: Service[]}>("/public/catalog/", tenantConfig)).data.services });
-  const professionalsQuery = useQuery({ queryKey: ["public-professionals", slug], enabled: !!slug, queryFn: async () => rows((await api.get<Row<Professional>>("/public/professionals/", tenantConfig)).data) });
-  const chosenProfessionals = professionalsQuery.data?.filter(p => serviceIds.every(id => p.services?.includes(id))) ?? [];
-  const slotsQuery = useQuery({ queryKey: ["public-availability", slug, serviceIds.join(","), professional, date], enabled: serviceIds.length > 0 && !!date, queryFn: async () => (await api.get<{ slots: Slot[] }>("/public/availability/", { ...tenantConfig, params: { services: serviceIds.join(","), professional, date } })).data.slots });
-  const waitlistMutation = useMutation({ mutationFn: (data: CustomerInput) => api.post("/public/waitlist/", { name: data.name, phone: data.phone, email: data.email, consent: data.consent, service: Number(waitlistServiceId), professional: professional === "any" ? null : Number(professional), desired_date: date }, tenantConfig) });
-  const onSubmit = async (data: CustomerInput) => {
-    setMessage("");
+  const complete = (title: string, message: string) => { setCompletionTitle(title); setCompletionMessage(message); setCompleted(true); setError(""); };
+  const submit = async (data: BookingData) => {
+    setError("");
     try {
-      if (!slot) throw new Error("Escolha um horário disponível.");
-      const matchingSlot = slotsQuery.data?.find(candidate => candidate.start_at === slot);
-      if (!matchingSlot) throw new Error("Esse horário acabou de ficar indisponível. Escolha outro.");
-      await api.post("/public/appointments/", { name: data.name, phone: data.phone, email: data.email, consent: data.consent, start_at: slot, items: matchingSlot.items.map((item, order) => ({ service: item.service, professional: item.professional, order })) }, tenantConfig);
-      setCompletionTitle("Reserva solicitada");
-      setCompletionMessage(`Seu horário foi enviado para ${slug}. O salão poderá confirmar os detalhes.`);
-      setCompleted(true);
-    } catch (error) { setMessage(errorMessage(error)); }
+      await api.post("/public/appointments/", data, tenantConfig);
+      complete("Reserva solicitada", `Seu pedido de horário foi enviado para ${slug}. O salão poderá confirmar os detalhes.`);
+    } catch (cause) { setError(errorMessage(cause)); }
   };
-  const onWaitlistSubmit = async (data: CustomerInput) => {
-    setMessage("");
-    if (!data.email) {
-      setMessage("Informe seu e-mail para receber o aviso de horário disponível.");
-      return;
-    }
-    if (!waitlistServiceId) {
-      setMessage("Escolha o serviço para a lista de espera.");
-      return;
-    }
+  const joinWaitlist = async (data: BookingData) => {
+    setError("");
     try {
-      await waitlistMutation.mutateAsync(data);
-      setCompletionTitle("Inscrição registrada");
-      setCompletionMessage("Você entrou na lista de espera. Avisaremos por e-mail se surgir um horário; a vaga não fica reservada.");
-      setCompleted(true);
-    } catch (error) { setMessage(errorMessage(error)); }
+      await api.post("/public/waitlist/", { name: data.name, phone: data.phone, email: data.email, consent: data.consent, service: data.service, professional: data.professional, desired_date: data.desired_date }, tenantConfig);
+      complete("Inscrição registrada", "Você entrou na lista de espera. Avisaremos por e-mail se surgir um horário; a vaga não fica reservada.");
+    } catch (cause) { setError(errorMessage(cause)); }
   };
-  const toggleService = (id: number) => {
-    const next = serviceIds.includes(id)
-      ? serviceIds.filter(item => item !== id)
-      : [...serviceIds, id];
-    setServiceIds(next);
-    setWaitlistServiceId(current =>
-      next.includes(Number(current)) ? current : String(next[0] ?? ""),
-    );
-    setSlot("");
-  };
-  if (!slug) return <main className="grid min-h-screen place-items-center bg-slate-50 p-5"><p role="alert" className="rounded-xl bg-white p-6 text-center">Não foi possível identificar o salão. Acesse o link de reserva enviado pelo estabelecimento.</p></main>;
-  if (completed) return <main className="grid min-h-screen place-items-center bg-violet-50 p-5"><section className="w-full max-w-md rounded-2xl bg-white p-7 text-center shadow-sm"><div className="mx-auto grid size-12 place-items-center rounded-full bg-green-100 text-2xl text-green-700">✓</div><h1 className="mt-4 text-2xl font-semibold">{completionTitle}</h1><p className="mt-2 text-slate-600">{completionMessage}</p></section></main>;
-  const loadError = serviceQuery.isError || professionalsQuery.isError;
-  return <main className="app-shell min-h-screen px-4 py-6 sm:py-12"><section className="panel mx-auto max-w-2xl p-5 sm:p-8"><header className="border-b border-slate-100 pb-5"><p className="text-sm font-medium uppercase tracking-wide text-violet-700">{slug}</p><h1 className="mt-1 text-2xl font-semibold text-slate-900 sm:text-3xl">Agende seu horário</h1><p className="mt-2 text-sm text-slate-600">Escolha os serviços, o profissional e um horário livre.</p></header>
-    {(serviceQuery.isLoading || professionalsQuery.isLoading) && <p role="status" className="py-8 text-center text-slate-600">Carregando opções…</p>}
-    {loadError && <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">Não foi possível carregar os serviços. {errorMessage(serviceQuery.error ?? professionalsQuery.error)}</p>}
-    {!serviceQuery.isLoading && !serviceQuery.isError && <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-5">
-      <fieldset><legend className="font-semibold">1. Serviços</legend><div className="mt-3 grid gap-2 sm:grid-cols-2">{serviceQuery.data?.map(service => <label key={service.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${serviceIds.includes(service.id) ? "border-violet-500 bg-violet-50" : "border-slate-200"}`}><input type="checkbox" checked={serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} className="mt-1 accent-violet-700"/><span className="min-w-0 flex-1"><span className="block font-medium">{service.name}</span><span className="text-sm text-slate-500">{service.duration_minutes} min · R$ {service.price}</span></span></label>)}</div>{serviceQuery.data?.length === 0 && <p className="text-sm text-slate-500">Nenhum serviço disponível no momento.</p>}</fieldset>
-      {serviceIds.length > 0 && <><label className="block font-semibold">2. Profissional<select value={professional} onChange={e => {setProfessional(e.target.value);setSlot("");}} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 font-normal"><option value="any">Qualquer disponível</option>{chosenProfessionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="block font-semibold">3. Data<input type="date" value={date} min={dateString(new Date())} onChange={e => {setDate(e.target.value);setSlot("");}} className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label><label className="block font-semibold">Horário<select value={slot} onChange={e => setSlot(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 font-normal"><option value="">{slotsQuery.isFetching ? "Buscando…" : "Escolha um horário"}</option>{slotsQuery.data?.map(s => <option key={s.start_at} value={s.start_at}>{new Date(s.start_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</option>)}</select></label></div>{slotsQuery.isError && <p role="alert" className="text-sm text-red-700">{errorMessage(slotsQuery.error)}</p>}{slotsQuery.data?.length === 0 && !slotsQuery.isFetching && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Não há horários livres nesta data. Tente outro dia ou entre na lista de espera.</p>}
-        <fieldset className="space-y-3"><legend className="font-semibold">4. Seus dados</legend><label className="block text-sm">Nome<input {...register("name")} autoComplete="name" className="mt-1 w-full rounded-lg border p-3"/>{errors.name && <small className="text-red-600">{errors.name.message}</small>}</label><div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm">Telefone<input {...register("phone")} autoComplete="tel" type="tel" className="mt-1 w-full rounded-lg border p-3"/>{errors.phone && <small className="text-red-600">{errors.phone.message}</small>}</label><label className="block text-sm">E-mail {slotsQuery.data?.length === 0 ? "(obrigatório para aviso)" : "(opcional)"}<input {...register("email")} autoComplete="email" type="email" className="mt-1 w-full rounded-lg border p-3"/>{errors.email && <small className="text-red-600">{errors.email.message}</small>}</label></div><label className="flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><input type="checkbox" {...register("consent")} className="mt-1 accent-violet-700"/><span>Autorizo o uso dos meus dados para criar e gerenciar esta reserva ou me avisar sobre um horário disponível na lista de espera, conforme a política de privacidade do salão.</span></label>{errors.consent && <small className="text-red-600">{errors.consent.message}</small>}</fieldset>
-        {slotsQuery.data?.length === 0 && !slotsQuery.isFetching && <div className="rounded-xl border border-violet-200 bg-violet-50 p-4"><label className="block text-sm font-semibold">Serviço para a lista de espera<select value={waitlistServiceId} onChange={e => setWaitlistServiceId(e.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 font-normal">{serviceIds.map(id => { const service = serviceQuery.data?.find(item => item.id === id); return service ? <option key={id} value={id}>{service.name}</option> : null; })}</select></label><button type="button" disabled={waitlistMutation.isPending || isSubmitting} onClick={handleSubmit(onWaitlistSubmit)} className="mt-3 w-full rounded-xl border border-violet-700 px-4 py-3 font-semibold text-violet-800 disabled:opacity-50">{waitlistMutation.isPending ? "Inscrevendo…" : "Entrar na lista de espera"}</button></div>}
-        {message && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}{slotsQuery.data?.length !== 0 && <button disabled={isSubmitting || slotsQuery.isFetching} className="w-full rounded-xl bg-violet-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{isSubmitting ? "Enviando reserva…" : "Confirmar reserva"}</button>}
-      </>}
-    </form>}
-  </section></main>;
+  if (!slug) return <main className="grid min-h-screen place-items-center p-5"><p role="alert" className="panel max-w-lg p-6 text-center">Não foi possível identificar o salão. Acesse o link de reserva enviado pelo estabelecimento.</p></main>;
+  if (completed) return <main className="grid min-h-screen place-items-center p-5"><section className="panel w-full max-w-md p-7 text-center"><div className="mx-auto grid size-12 place-items-center rounded-full border border-amber-200/30 bg-amber-200/10 text-2xl text-amber-200">✓</div><p className="eyebrow mt-4">ÉCLAT · {slug}</p><h1 className="mt-2 font-serif text-3xl">{completionTitle}</h1><p className="muted-copy mt-3">{completionMessage}</p></section></main>;
+  return <main className="app-shell min-h-screen px-3 py-5 sm:px-5 sm:py-10"><section className="panel mx-auto max-w-3xl p-4 sm:p-7"><header className="mb-5 border-b border-white/10 pb-5"><a className="brand-lockup" href="#"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>RESERVA · {slug.toUpperCase()}</small></span></a><h1 className="mt-5 font-serif text-3xl font-normal sm:text-4xl">Agende seu horário</h1><p className="muted-copy mt-2">Escolha o serviço e um horário. É simples e rápido.</p></header>{error && <p role="alert" className="notice-error mb-4 rounded-lg bg-red-950/50 p-3">{error}</p>}<AppointmentWizard mode="public" slug={slug} onConfirm={data => void submit(data)} onWaitlist={data => void joinWaitlist(data)} /></section></main>;
 }

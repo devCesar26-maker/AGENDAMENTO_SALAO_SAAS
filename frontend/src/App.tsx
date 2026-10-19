@@ -16,6 +16,11 @@ const PublicBookingPage = lazy(() =>
 const ServicesPage = lazy(() =>
   import("./pages/ServicesPage").then(({ ServicesPage }) => ({ default: ServicesPage })),
 );
+const ProfessionalsPage = lazy(() => import("./pages/ProfessionalsPage").then(({ ProfessionalsPage }) => ({ default: ProfessionalsPage })));
+const CustomersPage = lazy(() => import("./pages/CustomersPage").then(({ CustomersPage }) => ({ default: CustomersPage })));
+const PlanPage = lazy(() => import("./pages/PlanPage").then(({ PlanPage }) => ({ default: PlanPage })));
+const MetricsPage = lazy(() => import("./pages/MetricsPage").then(({ MetricsPage }) => ({ default: MetricsPage })));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then(({ NotificationsPage }) => ({ default: NotificationsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +54,11 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/app/profissionais" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><ProfessionalsPage /></ProtectedRoute>} />
+              <Route path="/app/clientes" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><CustomersPage /></ProtectedRoute>} />
+              <Route path="/app/plano" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><PlanPage /></ProtectedRoute>} />
+              <Route path="/app/metricas" element={<ProtectedRoute><MetricsPage /></ProtectedRoute>} />
+              <Route path="/app/notificacoes" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><NotificationsPage /></ProtectedRoute>} />
               <Route path="/app" element={<Navigate to="/app/agenda" replace />} />
               <Route path="/b/:slug" element={<PublicBookingPage />} />
               <Route

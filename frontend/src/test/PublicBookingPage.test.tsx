@@ -16,11 +16,15 @@ describe("PublicBookingPage", () => {
     const user = userEvent.setup();
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/b/salao"]}><Routes><Route path="/b/:slug" element={<PublicBookingPage/>}/></Routes></MemoryRouter></QueryClientProvider>);
-    await user.click(await screen.findByLabelText(/Corte/));
-    await user.selectOptions(screen.getByLabelText("Horário"), "2030-01-02T10:00:00-03:00");
-    await user.type(screen.getByLabelText("Nome"), "Ana Cliente");
+    await user.click(await screen.findByRole("button", { name: /Corte/ }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "10:00" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.type(screen.getByLabelText("Seu nome"), "Ana Cliente");
     await user.type(screen.getByLabelText("Telefone"), "11999999999");
-    await user.click(screen.getByRole("checkbox", { name: /Autorizo o uso/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Concordo com o uso/ }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(screen.getByRole("button", { name: "Confirmar reserva" }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith("/public/appointments/", expect.objectContaining({ name:"Ana Cliente", phone:"11999999999", consent:true }), expect.objectContaining({ headers: { "X-Tenant-Slug": "salao" } })));
     expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty("origin");
@@ -33,12 +37,16 @@ describe("PublicBookingPage", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/b/salao"]}><Routes><Route path="/b/:slug" element={<PublicBookingPage/>}/></Routes></MemoryRouter></QueryClientProvider>);
 
-    await user.click(await screen.findByLabelText(/Corte/));
-    await screen.findByText(/Não há horários livres nesta data/);
-    await user.type(screen.getByLabelText("Nome"), "Ana Cliente");
+    await user.click(await screen.findByRole("button", { name: /Corte/ }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await screen.findByText(/Não encontramos horários livres/);
+    await user.click(screen.getByRole("button", { name: "Quero entrar na lista de espera" }));
+    await user.type(screen.getByLabelText("Seu nome"), "Ana Cliente");
     await user.type(screen.getByLabelText("Telefone"), "11999999999");
-    await user.type(screen.getByLabelText(/E-mail/), "ana@example.com");
-    await user.click(screen.getByRole("checkbox", { name: /Autorizo o uso/ }));
+    await user.type(screen.getByLabelText(/E-mail para aviso/), "ana@example.com");
+    await user.click(screen.getByRole("checkbox", { name: /Concordo com o uso/ }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(screen.getByRole("button", { name: "Entrar na lista de espera" }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith("/public/waitlist/", expect.objectContaining({
