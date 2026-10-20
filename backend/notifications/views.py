@@ -99,9 +99,8 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
             now = timezone.now()
             if matches:
                 customer = matches[0]
-                if (
-                    customer.phone != data["phone"]
-                    or (data["email"] and customer.email.casefold() != data["email"].casefold())
+                if customer.phone != data["phone"] or (
+                    data["email"] and customer.email.casefold() != data["email"].casefold()
                 ):
                     raise serializers.ValidationError(
                         "Os contatos informados não correspondem ao cadastro existente. "

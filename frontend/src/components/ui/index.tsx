@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 
@@ -7,13 +7,13 @@ export function Button({ variant = "primary", className = "", type = "button", .
   return <button type={type} className={`${styles[variant]} ${className}`.trim()} {...props} />;
 }
 
-export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`field-input ${className}`.trim()} {...props} />;
-}
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className = "", ...props }, ref) {
+  return <input ref={ref} className={`field-input ${className}`.trim()} {...props} />;
+});
 
-export function Select({ className = "", children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={`field-input ${className}`.trim()} {...props}>{children}</select>;
-}
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className = "", children, ...props }, ref) {
+  return <select ref={ref} className={`field-input ${className}`.trim()} {...props}>{children}</select>;
+});
 
 export function Card({ className = "", children, ...props }: { className?: string; children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
   return <div className={`panel ${className}`.trim()} {...props}>{children}</div>;
@@ -27,3 +27,14 @@ export function Badge({ tone = "neutral", className = "", children }: { tone?: B
 export function EmptyState({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return <section className={`panel empty-state ${className}`.trim()} aria-label={title}><span aria-hidden="true">✧</span><h2>{title}</h2><p>{children}</p></section>;
 }
+
+export { Modal } from "./Modal";
+export { Tabs } from "./Tabs";
+export { Table } from "./Table";
+export { Skeleton, SkeletonCard, SkeletonList } from "./Skeleton";
+export { Dialog } from "./Dialog";
+export { Select as SelectComponent } from "./Select";
+export { toast, ToastContainer } from "./Toast";
+export { FormField } from "./FormField";
+export { Tooltip } from "./Tooltip";
+export { Pagination } from "./Pagination";

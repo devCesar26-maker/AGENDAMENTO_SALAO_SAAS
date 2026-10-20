@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ToastContainer } from "./components/ui";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { tenantSlugForHostname } from "./lib/useTenantSlug";
@@ -85,6 +86,7 @@ export default function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
+        <ToastContainer />
       </AuthProvider>
     </QueryClientProvider>
   );

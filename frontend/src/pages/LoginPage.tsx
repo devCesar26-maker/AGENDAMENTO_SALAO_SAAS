@@ -4,7 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { useAuth } from "../lib/auth-context";
 import { errorMessage } from "../lib/api";
-import { Button, Input } from "../components/ui";
+import { Button, Input, FormField } from "../components/ui";
 
 const loginSchema = z.object({
   email: z.string().email("Informe um e-mail válido"),
@@ -26,7 +26,6 @@ export function LoginPage() {
     setErro(null);
     try {
       await login(values.email, values.password);
-      // O redirecionamento é feito pelo ProtectedRoute/toast; navegação simples:
       window.location.assign("/app/agenda");
     } catch (e) {
       setErro(errorMessage(e));
@@ -35,42 +34,48 @@ export function LoginPage() {
 
   return (
     <div className="login-shell">
-      <div className="login-card panel">
-        <div className="login-brand"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></div>
+      <div className="login-card panel card-hover">
+        <div className="login-brand">
+          <span className="brand-mark">É</span>
+          <span>
+            <strong>Éclat</strong>
+            <small>GESTÃO DO ESTÚDIO</small>
+          </span>
+        </div>
         <h1 className="login-title">Seu espaço, em harmonia.</h1>
-        <p className="mb-6 text-sm text-slate-500">Acesse a gestão do seu salão ou barbearia.</p>
+        <p className="muted-copy">Acesse a gestão do seu salão ou barbearia.</p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
-              E-mail
-            </label>
+        <form onSubmit={handleSubmit(onSubmit)} className="register-form" noValidate>
+          <FormField
+            label="E-mail"
+            error={errors.email?.message}
+          >
             <Input
               id="email"
               type="email"
               autoComplete="email"
+              placeholder="seu@email.com"
               {...register("email")}
               className="w-full"
             />
-            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
-              Senha
-            </label>
+          <FormField
+            label="Senha"
+            error={errors.password?.message}
+          >
             <Input
               id="password"
               type="password"
               autoComplete="current-password"
+              placeholder="••••••••"
               {...register("password")}
               className="w-full"
             />
-            {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
-          </div>
+          </FormField>
 
           {erro && (
-            <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div role="alert" className="notice-card notice-error">
               {erro}
             </div>
           )}
@@ -78,13 +83,24 @@ export function LoginPage() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="button-wide"
+            className="button-wide register-submit"
           >
-            {isSubmitting ? "Entrando…" : "Entrar"}
+            {isSubmitting ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Entrando…
+              </>
+            ) : (
+              "Entrar"
+            )}
           </Button>
         </form>
-        <p className="register-footer"><a href="/esqueci-senha">Esqueci minha senha</a></p>
-        <p className="register-footer">Ainda não tem conta? <a href="/cadastro">Criar meu espaço</a></p>
+        <p className="register-footer">
+          <a href="/esqueci-senha">Esqueci minha senha</a>
+        </p>
+        <p className="register-footer">
+          Ainda não tem conta? <a href="/cadastro">Criar meu espaço</a>
+        </p>
       </div>
     </div>
   );
