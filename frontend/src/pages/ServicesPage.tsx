@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api";
-import { useAuth } from "../lib/auth-context";
-import { AppearanceSettings } from "../components/AppearanceSettings";
+import { DashboardHeader } from "../components/DashboardHeader";
 
 type Row<T> = T[] | { results: T[] };
 type Category = { id: number; name: string; is_active: boolean };
@@ -12,7 +11,6 @@ const rows = <T,>(data: Row<T>) => Array.isArray(data) ? data : data.results;
 const blank: ServiceInput = { category: 0, name: "", description: "", duration_minutes: 30, price: "0.00", buffer_minutes: 0, is_active: true };
 
 export function ServicesPage() {
-  const { user, logout } = useAuth();
   const client = useQueryClient();
   const [editing, setEditing] = useState<Service | null>(null);
   const [form, setForm] = useState<ServiceInput>(blank);
@@ -32,7 +30,7 @@ export function ServicesPage() {
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(form); }
 
   return <div className="app-shell">
-    <header className="topbar"><a className="brand-lockup" href="/app/agenda"><span className="brand-mark">É</span><span><strong>Éclat</strong><small>GESTÃO DO ESTÚDIO</small></span></a><nav className="topnav"><a href="/app/agenda">Agenda</a><span className="nav-current">Serviços</span></nav><div className="topbar-actions"><span className="user-chip">{user?.email}</span><AppearanceSettings organizationSlug={user?.organization?.slug} /><button className="button-quiet" onClick={() => void logout()}>Sair</button></div></header>
+    <DashboardHeader current="Serviços" />
     <main className="page-content">
       <div className="page-heading"><div><p className="eyebrow">CATÁLOGO</p><h1>Serviços</h1><p className="muted-copy">Organize o que seu espaço oferece, com duração e valores.</p></div><button className="button-primary" onClick={startCreate} disabled={!categories.data?.length}>Adicionar serviço</button></div>
       {!categories.isLoading && !categories.data?.length && <div className="notice-card">Cadastre uma categoria para começar. <button className="button-quiet" onClick={() => setCategoryOpen(true)}>Criar categoria</button></div>}
