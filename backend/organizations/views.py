@@ -82,9 +82,7 @@ class InvitationListCreateView(OrganizationSlugMixin, generics.ListCreateAPIView
             invited_by=request.user,
         )
         return Response(
-            InvitationSerializer(
-                invitation, context=self.get_serializer_context()
-            ).data,
+            InvitationSerializer(invitation, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -94,9 +92,7 @@ class InvitationDetailView(OrganizationSlugMixin, APIView):
 
     def delete(self, request, slug: str, pk: int):
         invitation = (
-            selectors.list_pending_invitations(self.get_organization())
-            .filter(pk=pk)
-            .first()
+            selectors.list_pending_invitations(self.get_organization()).filter(pk=pk).first()
         )
         if invitation is None:
             raise NotFound("Convite pendente não encontrado.")
@@ -118,9 +114,7 @@ class InvitationAcceptView(APIView):
             raise NotFound("Convite expirado, inválido ou já utilizado.")
         from django.contrib.auth import get_user_model
 
-        exists = (
-            get_user_model().objects.filter(email__iexact=invitation.email).exists()
-        )
+        exists = get_user_model().objects.filter(email__iexact=invitation.email).exists()
         return Response(
             {
                 "email": invitation.email,
@@ -148,9 +142,7 @@ class InvitationAcceptView(APIView):
             password=serializer.validated_data.get("password"),
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
-            authenticated_user=(
-                request.user if request.user.is_authenticated else None
-            ),
+            authenticated_user=(request.user if request.user.is_authenticated else None),
         )
         return Response(self._payload(membership), status=status.HTTP_201_CREATED)
 
@@ -201,7 +193,5 @@ class MemberDetailView(OrganizationSlugMixin, generics.RetrieveUpdateAPIView):
             self.get_object(),
             role=serializer.validated_data.get("role"),
             is_active=serializer.validated_data.get("is_active"),
-            actor=selectors.get_active_membership(
-                self.request.user, self.get_organization()
-            ),
+            actor=selectors.get_active_membership(self.request.user, self.get_organization()),
         )
