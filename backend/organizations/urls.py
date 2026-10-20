@@ -14,6 +14,11 @@ urlpatterns = [
         name="organization-invitations",
     ),
     path(
+        "organizations/<slug:slug>/invitations/<int:pk>/",
+        views.InvitationDetailView.as_view(),
+        name="organization-invitation-detail",
+    ),
+    path(
         "organizations/<slug:slug>/members/",
         views.MemberListView.as_view(),
         name="organization-members",

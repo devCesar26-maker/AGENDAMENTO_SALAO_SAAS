@@ -21,6 +21,9 @@ const CustomersPage = lazy(() => import("./pages/CustomersPage").then(({ Custome
 const PlanPage = lazy(() => import("./pages/PlanPage").then(({ PlanPage }) => ({ default: PlanPage })));
 const MetricsPage = lazy(() => import("./pages/MetricsPage").then(({ MetricsPage }) => ({ default: MetricsPage })));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then(({ NotificationsPage }) => ({ default: NotificationsPage })));
+const TeamPage = lazy(() => import("./pages/TeamPage").then(({ TeamPage }) => ({ default: TeamPage })));
+const OrganizationSettingsPage = lazy(() => import("./pages/OrganizationSettingsPage").then(({ OrganizationSettingsPage }) => ({ default: OrganizationSettingsPage })));
+const InvitationAcceptPage = lazy(() => import("./pages/InvitationAcceptPage").then(({ InvitationAcceptPage }) => ({ default: InvitationAcceptPage })));
 const PasswordResetRequestPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetRequestPage }) => ({ default: PasswordResetRequestPage })));
 const PasswordResetConfirmPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetConfirmPage }) => ({ default: PasswordResetConfirmPage })));
 
@@ -41,6 +44,7 @@ export default function App() {
               <Route path="/esqueci-senha" element={<PasswordResetRequestPage />} />
               <Route path="/resetar-senha/:uidb64/:token" element={<PasswordResetConfirmPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
+              <Route path="/convite/:token" element={<InvitationAcceptPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route
                 path="/app/agenda"
@@ -63,6 +67,8 @@ export default function App() {
               <Route path="/app/plano" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><PlanPage /></ProtectedRoute>} />
               <Route path="/app/metricas" element={<ProtectedRoute><MetricsPage /></ProtectedRoute>} />
               <Route path="/app/notificacoes" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><NotificationsPage /></ProtectedRoute>} />
+              <Route path="/app/equipe" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><TeamPage /></ProtectedRoute>} />
+              <Route path="/app/configuracoes" element={<ProtectedRoute><OrganizationSettingsPage /></ProtectedRoute>} />
               <Route path="/app" element={<Navigate to="/app/agenda" replace />} />
               <Route path="/b/:slug" element={<PublicBookingPage />} />
               <Route

@@ -36,7 +36,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const acceptSession = useCallback((access: string, acceptedUser: AuthUser) => {
+    setAccessToken(access);
+    setUser(acceptedUser);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const { data } = await api.get<{ id: number; email: string; first_name: string; last_name: string; memberships: { id: number; organization: { id: number; slug: string }; role: AuthUser["role"] }[] }>("/me/");
+    const membership = data.memberships[0];
+    setUser({ id: data.id, email: data.email, first_name: data.first_name, last_name: data.last_name, organization: membership?.organization ?? null, role: membership?.role ?? null });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, login, logout, acceptSession, refreshUser }}>{children}</AuthContext.Provider>
   );
 }

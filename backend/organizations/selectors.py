@@ -44,3 +44,7 @@ def list_pending_invitations(organization: Organization):
         )
         .order_by("-created_at")
     )
+
+
+def get_invitation_by_token(token: str) -> Invitation | None:
+    return Invitation.objects.select_related("organization").filter(token=token).first()

@@ -4,6 +4,8 @@ Endpoints de salões, membros e convites (views finas; regras em services.py).
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -80,9 +82,26 @@ class InvitationListCreateView(OrganizationSlugMixin, generics.ListCreateAPIView
             invited_by=request.user,
         )
         return Response(
-            InvitationSerializer(invitation, context=self.get_serializer_context()).data,
+            InvitationSerializer(
+                invitation, context=self.get_serializer_context()
+            ).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class InvitationDetailView(OrganizationSlugMixin, APIView):
+    permission_classes = [IsOrganizationManagerOrOwner]
+
+    def delete(self, request, slug: str, pk: int):
+        invitation = (
+            selectors.list_pending_invitations(self.get_organization())
+            .filter(pk=pk)
+            .first()
+        )
+        if invitation is None:
+            raise NotFound("Convite pendente não encontrado.")
+        services.revoke_invitation(invitation)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class InvitationAcceptView(APIView):
@@ -91,8 +110,29 @@ class InvitationAcceptView(APIView):
     e-mail ainda não existe; o role vem SEMPRE do Invitation, nunca do body.
     """
 
-    authentication_classes: list = []
-    permission_classes: list = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, token: str):
+        invitation = selectors.get_invitation_by_token(token)
+        if invitation is None or not invitation.is_valid:
+            raise NotFound("Convite expirado, inválido ou já utilizado.")
+        from django.contrib.auth import get_user_model
+
+        exists = (
+            get_user_model().objects.filter(email__iexact=invitation.email).exists()
+        )
+        return Response(
+            {
+                "email": invitation.email,
+                "role": invitation.role,
+                "organization": {
+                    "name": invitation.organization.name,
+                    "slug": invitation.organization.slug,
+                },
+                "account_exists": exists,
+                "expires_at": invitation.expires_at,
+            }
+        )
 
     @extend_schema(
         request=InvitationAcceptSerializer,
@@ -108,6 +148,9 @@ class InvitationAcceptView(APIView):
             password=serializer.validated_data.get("password"),
             first_name=serializer.validated_data.get("first_name", ""),
             last_name=serializer.validated_data.get("last_name", ""),
+            authenticated_user=(
+                request.user if request.user.is_authenticated else None
+            ),
         )
         return Response(self._payload(membership), status=status.HTTP_201_CREATED)
 
@@ -158,5 +201,7 @@ class MemberDetailView(OrganizationSlugMixin, generics.RetrieveUpdateAPIView):
             self.get_object(),
             role=serializer.validated_data.get("role"),
             is_active=serializer.validated_data.get("is_active"),
-            actor=selectors.get_active_membership(self.request.user, self.get_organization()),
+            actor=selectors.get_active_membership(
+                self.request.user, self.get_organization()
+            ),
         )

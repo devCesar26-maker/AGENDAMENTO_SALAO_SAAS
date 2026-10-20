@@ -76,6 +76,13 @@ class InvitationCreateSerializer(serializers.ModelSerializer):
         model = Invitation
         fields = ["email", "role"]
 
+    def validate_role(self, value: str) -> str:
+        if value == Membership.Role.OWNER:
+            raise serializers.ValidationError(
+                "Convites não podem conceder o papel de proprietário."
+            )
+        return value
+
 
 class InvitationSerializer(serializers.ModelSerializer):
     """Convite pendente, incluindo token/link (visível só a OWNER/MANAGER)."""

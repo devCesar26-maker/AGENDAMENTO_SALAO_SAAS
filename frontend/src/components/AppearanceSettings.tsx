@@ -16,6 +16,17 @@ export function AppearanceSettings({ organizationSlug }: { organizationSlug?: st
   });
   const [message, setMessage] = useState("");
 
+  function updateAppearance(next: Appearance | ((current: Appearance) => Appearance)) {
+    const updated = typeof next === "function" ? next(appearance) : next;
+    setAppearance(updated);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      setMessage("");
+    } catch {
+      setMessage("Não foi possível salvar a imagem neste navegador. Escolha um arquivo menor.");
+    }
+  }
+
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--workspace-backdrop",
@@ -24,11 +35,6 @@ export function AppearanceSettings({ organizationSlug }: { organizationSlug?: st
     document.documentElement.style.setProperty("--workspace-shade", `${appearance.shade}%`);
     document.documentElement.style.setProperty("--workspace-blur", `${appearance.blur}px`);
     document.documentElement.style.setProperty("--workspace-position", appearance.position);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(appearance));
-    } catch {
-      setMessage("Não foi possível salvar a imagem neste navegador. Escolha um arquivo menor.");
-    }
     return () => {
       document.documentElement.style.removeProperty("--workspace-backdrop");
       document.documentElement.style.removeProperty("--workspace-shade");
@@ -50,7 +56,7 @@ export function AppearanceSettings({ organizationSlug }: { organizationSlug?: st
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setAppearance((current) => ({ ...current, image: String(reader.result) }));
+    reader.onload = () => updateAppearance((current) => ({ ...current, image: String(reader.result) }));
     reader.onerror = () => setMessage("Não foi possível abrir esta imagem.");
     reader.readAsDataURL(file);
     event.target.value = "";
@@ -71,18 +77,18 @@ export function AppearanceSettings({ organizationSlug }: { organizationSlug?: st
             <input className="field-input" type="file" accept="image/*" onChange={chooseImage} />
           </label>
           <label className="field-label">Escurecimento <span>{appearance.shade}%</span>
-            <input type="range" min="35" max="94" value={appearance.shade} onChange={(event) => setAppearance({ ...appearance, shade: Number(event.target.value) })} />
+            <input type="range" min="35" max="94" value={appearance.shade} onChange={(event) => updateAppearance({ ...appearance, shade: Number(event.target.value) })} />
           </label>
           <label className="field-label">Desfoque <span>{appearance.blur}px</span>
-            <input type="range" min="0" max="12" value={appearance.blur} onChange={(event) => setAppearance({ ...appearance, blur: Number(event.target.value) })} />
+            <input type="range" min="0" max="12" value={appearance.blur} onChange={(event) => updateAppearance({ ...appearance, blur: Number(event.target.value) })} />
           </label>
           <label className="field-label">Enquadramento
-            <select className="field-input" value={appearance.position} onChange={(event) => setAppearance({ ...appearance, position: event.target.value })}>
+            <select className="field-input" value={appearance.position} onChange={(event) => updateAppearance({ ...appearance, position: event.target.value })}>
               <option value="center">Centro</option><option value="center top">Topo</option><option value="center bottom">Base</option><option value="left center">Esquerda</option><option value="right center">Direita</option>
             </select>
           </label>
           {message && <p className="inline-message" role="status">{message}</p>}
-          {appearance.image && <button className="button-quiet" type="button" onClick={() => setAppearance({ ...DEFAULTS, shade: appearance.shade, blur: appearance.blur })}>Remover imagem</button>}
+          {appearance.image && <button className="button-quiet" type="button" onClick={() => updateAppearance({ ...DEFAULTS, shade: appearance.shade, blur: appearance.blur })}>Remover imagem</button>}
           <p className="helper-copy">A imagem e os ajustes ficam salvos somente neste navegador e nesta organização.</p>
         </section>
       )}

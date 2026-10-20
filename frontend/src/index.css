@@ -218,6 +218,40 @@ input::placeholder, textarea::placeholder { color: #85837e; }
 .wizard-modal { width: min(100%, 760px); }
 .plan-current { display: grid; grid-template-columns: 1fr auto; gap: 1rem; padding: 1.3rem; }
 .plan-usage-grid { display: grid; grid-column: 1 / -1; gap: .9rem; }
+.team-layout, .settings-layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .85fr); align-items: start; }
+.team-side { display: grid; gap: 1rem; }
+.team-section, .settings-form { display: grid; gap: 1rem; padding: 1.2rem; }
+.team-section h2, .settings-form h2 { margin: 0; font-family: Georgia, serif; font-size: 1.3rem; font-weight: 400; }
+.team-list { display: grid; gap: .65rem; }
+.team-row { display: grid; grid-template-columns: minmax(130px, 1fr) auto auto; align-items: center; gap: .65rem; border: 1px solid var(--stroke); border-radius: 12px; padding: .75rem; }
+.team-identity { display: grid; min-width: 0; gap: .2rem; }
+.team-identity small { overflow: hidden; color: var(--muted); font-size: .75rem; text-overflow: ellipsis; }
+.team-role { color: #ded5c7; font-size: .78rem; }
+.team-actions { display: flex; grid-column: 1 / -1; gap: .5rem; }
+.team-actions .field-input { max-width: 190px; }
+.invitation-row { grid-template-columns: minmax(100px, 1fr) auto; }
+.settings-layout { grid-template-columns: minmax(0, 1fr); }
+.settings-form { width: min(100%, 850px); }
+.copy-link { display: flex; gap: .5rem; }
+.business-hours { display: grid; gap: .55rem; }
+.business-day { display: grid; grid-template-columns: 100px 1fr; align-items: center; gap: .45rem; border-bottom: 1px solid var(--stroke); padding: .55rem 0; }
+.business-range { display: flex; align-items: center; gap: .45rem; margin-bottom: .35rem; }
+.business-range .field-input { width: 125px; }
+.business-add { grid-column: 2; justify-self: start; margin-top: .3rem; }
+@media (max-width: 900px) {
+  .team-layout { grid-template-columns: 1fr; }
+  .topbar { flex-wrap: wrap; }
+  .topnav { order: 3; width: 100%; overflow-x: auto; }
+}
+@media (max-width: 560px) {
+  .team-row { grid-template-columns: 1fr auto; }
+  .team-role { grid-column: 1; }
+  .team-actions { flex-wrap: wrap; }
+  .business-day { grid-template-columns: 1fr; }
+  .business-add { grid-column: 1; }
+  .business-range .field-input { min-width: 0; width: 100%; }
+  .copy-link { align-items: stretch; }
+}
 .plan-current > .helper-copy { grid-column: 1 / -1; }
 .usage-meter { display: grid; gap: .45rem; color: #e2ddd4; font-size: .79rem; }
 .usage-meter > div:first-child span { color: var(--muted); font-size: .74rem; }
