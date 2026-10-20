@@ -82,6 +82,7 @@ export function LoginPage() {
             {isSubmitting ? "Entrando…" : "Entrar"}
           </button>
         </form>
+        <p className="register-footer"><a href="/esqueci-senha">Esqueci minha senha</a></p>
         <p className="register-footer">Ainda não tem conta? <a href="/cadastro">Criar meu espaço</a></p>
       </div>
     </div>

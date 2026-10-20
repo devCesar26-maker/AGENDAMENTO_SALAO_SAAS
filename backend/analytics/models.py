@@ -9,6 +9,7 @@ class AuditLog(models.Model):
         MEMBER_REMOVED = "MEMBER_REMOVED", "Membro removido"
         PLAN_CHANGED = "PLAN_CHANGED", "Plano alterado"
         COMMISSION_CHANGED = "COMMISSION_CHANGED", "Comissão alterada"
+        CUSTOMER_ANONYMIZED = "CUSTOMER_ANONYMIZED", "Cliente anonimizado"
 
     organization = models.ForeignKey(
         "organizations.Organization", on_delete=models.CASCADE, related_name="audit_logs"

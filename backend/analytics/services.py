@@ -15,6 +15,7 @@ SAFE_AUDIT_CONTEXT_KEYS = {
     "to_tier",
     "status",
     "commission_percentage",
+    "customer_id",
 }
 
 

@@ -14,4 +14,6 @@ urlpatterns = [
         views.CustomerLgpdConsentView.as_view(),
         name="customer-lgpd-consent",
     ),
+    path("customers/<int:pk>/export/", views.CustomerExportView.as_view(), name="customer-export"),
+    path("customers/<int:pk>/anonymize/", views.CustomerAnonymizeView.as_view(), name="customer-anonymize"),
 ]

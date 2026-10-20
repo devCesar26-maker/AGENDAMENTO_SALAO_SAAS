@@ -77,6 +77,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .appearance-panel h2, .panel-heading h2 { margin: .2rem 0 0; font-family: Georgia, serif; font-size: 1.25rem; font-weight: 400; }
 .helper-copy { margin: 0; font-size: .76rem; }
 .inline-message, .notice-error { color: #ffaaa7; font-size: .83rem; }
+.notice-success { color: #8bd7a4; font-size: .9rem; }
 .service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
 .service-card { padding: 1.15rem; }
 .service-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }

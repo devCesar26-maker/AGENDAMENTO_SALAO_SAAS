@@ -21,6 +21,8 @@ const CustomersPage = lazy(() => import("./pages/CustomersPage").then(({ Custome
 const PlanPage = lazy(() => import("./pages/PlanPage").then(({ PlanPage }) => ({ default: PlanPage })));
 const MetricsPage = lazy(() => import("./pages/MetricsPage").then(({ MetricsPage }) => ({ default: MetricsPage })));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then(({ NotificationsPage }) => ({ default: NotificationsPage })));
+const PasswordResetRequestPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetRequestPage }) => ({ default: PasswordResetRequestPage })));
+const PasswordResetConfirmPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetConfirmPage }) => ({ default: PasswordResetConfirmPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +38,8 @@ export default function App() {
           <Suspense fallback={<div className="p-6 text-center text-slate-600">Carregando…</div>}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/esqueci-senha" element={<PasswordResetRequestPage />} />
+              <Route path="/resetar-senha/:uidb64/:token" element={<PasswordResetConfirmPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route
