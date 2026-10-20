@@ -3,8 +3,8 @@ Endpoints de clientes (views finas; regras em services/selectors). Todos
 escopados ao tenant via `TenantModelViewSet` (core/tenant).
 """
 
-from drf_spectacular.utils import extend_schema
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,7 +19,6 @@ from core.tenant import (
     TenantSerializerContextMixin,
     resolve_tenant,
 )
-
 from organizations.permissions import IsTenantManagerOrOwner
 from organizations.selectors import get_active_membership
 from scheduling.models import Appointment, AppointmentItem
@@ -36,8 +35,17 @@ class CustomerExportAppointmentItemSerializer(ModelSerializer):
     class Meta:
         model = AppointmentItem
         fields = (
-            "id", "service", "service_name", "professional", "professional_name", "order",
-            "start_at", "end_at", "buffer_minutes", "price", "commission_percentage",
+            "id",
+            "service",
+            "service_name",
+            "professional",
+            "professional_name",
+            "order",
+            "start_at",
+            "end_at",
+            "buffer_minutes",
+            "price",
+            "commission_percentage",
         )
 
 
@@ -47,8 +55,15 @@ class CustomerExportAppointmentSerializer(ModelSerializer):
     class Meta:
         model = Appointment
         fields = (
-            "id", "status", "origin", "created_by", "notes", "reminder_sent_at",
-            "created_at", "updated_at", "items",
+            "id",
+            "status",
+            "origin",
+            "created_by",
+            "notes",
+            "reminder_sent_at",
+            "created_at",
+            "updated_at",
+            "items",
         )
 
 
@@ -58,8 +73,18 @@ class CustomerExportSerializer(ModelSerializer):
     class Meta:
         model = Customer
         fields = (
-            "id", "name", "phone", "email", "responsavel", "notes", "birthday",
-            "lgpd_consent", "lgpd_consent_at", "created_at", "updated_at", "appointments",
+            "id",
+            "name",
+            "phone",
+            "email",
+            "responsavel",
+            "notes",
+            "birthday",
+            "lgpd_consent",
+            "lgpd_consent_at",
+            "created_at",
+            "updated_at",
+            "appointments",
         )
 
 
@@ -96,8 +121,15 @@ class CustomerAnonymizeView(_CustomerManagerView):
             customer.lgpd_consent_at = None
             customer.save(
                 update_fields=(
-                    "name", "phone", "email", "notes", "responsavel", "birthday",
-                    "lgpd_consent", "lgpd_consent_at", "updated_at",
+                    "name",
+                    "phone",
+                    "email",
+                    "notes",
+                    "responsavel",
+                    "birthday",
+                    "lgpd_consent",
+                    "lgpd_consent_at",
+                    "updated_at",
                 )
             )
             customer.appointments.update(notes="")
@@ -109,7 +141,10 @@ class CustomerAnonymizeView(_CustomerManagerView):
                 object_id=customer.pk,
                 context={"customer_id": customer.pk},
             )
-        return Response({"detail": "Dados pessoais do cliente anonimizados."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Dados pessoais do cliente anonimizados."},
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(tags=["customers"])

@@ -90,7 +90,7 @@ def overview(organization, start, end, start_date, end_date, *, professional_use
     active_count = count - canceled
     return {
         "total_appointments": count,
-        "occupancy_rate": round(float(occupied_minutes / capacity * 100), 2) if capacity else 0.0,
+        "occupancy_rate": (round(float(occupied_minutes / capacity * 100), 2) if capacity else 0.0),
         "no_show_rate": round(no_show / active_count * 100, 2) if active_count else 0.0,
         "estimated_revenue": data["revenue"] or Decimal("0.00"),
     }

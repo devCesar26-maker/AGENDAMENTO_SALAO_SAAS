@@ -4,13 +4,13 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from analytics.models import AuditLog
-from catalog.factories import ProfessionalFactory, ServiceFactory
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
+from analytics.models import AuditLog
+from catalog.factories import ProfessionalFactory, ServiceFactory
 from customers.factories import CustomerFactory
 from scheduling.models import Appointment, AppointmentItem
 
@@ -50,38 +50,79 @@ def test_customer_rejeita_autorreferencia_e_cadeia_de_responsaveis(organization)
         third.full_clean()
 
 
-def test_customer_export_anonymize_preserva_historico_e_isola_tenant(auth_client, organization, other_organization):
-    customer = CustomerFactory(organization=organization, name="Dado Privado", phone="11999998888", email="privado@example.com", notes="observação confidencial")
+def test_customer_export_anonymize_preserva_historico_e_isola_tenant(
+    auth_client, organization, other_organization
+):
+    customer = CustomerFactory(
+        organization=organization,
+        name="Dado Privado",
+        phone="11999998888",
+        email="privado@example.com",
+        notes="observação confidencial",
+    )
     service = ServiceFactory(organization=organization)
     professional = ProfessionalFactory(organization=organization)
-    appointment = Appointment.objects.create(organization=organization, customer=customer, notes="nota pessoal")
-    AppointmentItem.objects.create(organization=organization, appointment=appointment, service=service, professional=professional, order=0, start_at=timezone.now(), end_at=timezone.now()+timedelta(minutes=30), price="100.00", commission_percentage="20.00")
+    appointment = Appointment.objects.create(
+        organization=organization, customer=customer, notes="nota pessoal"
+    )
+    AppointmentItem.objects.create(
+        organization=organization,
+        appointment=appointment,
+        service=service,
+        professional=professional,
+        order=0,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(minutes=30),
+        price="100.00",
+        commission_percentage="20.00",
+    )
     other_in_tenant = CustomerFactory(organization=organization, name="Outro cliente")
     Appointment.objects.create(organization=organization, customer=other_in_tenant)
     from django.urls import reverse
+
     exported = auth_client.get(reverse("customer-export", kwargs={"pk": customer.pk}))
     assert exported.status_code == 200
     assert exported.json()["email"] == customer.email
     assert len(exported.json()["appointments"]) == 1
     assert exported.json()["appointments"][0]["items"][0]["commission_percentage"] == "20.00"
     other_customer = CustomerFactory(organization=other_organization)
-    assert auth_client.get(reverse("customer-export", kwargs={"pk": other_customer.pk})).status_code in (403, 404)
+    assert auth_client.get(
+        reverse("customer-export", kwargs={"pk": other_customer.pk})
+    ).status_code in (403, 404)
     response = auth_client.post(reverse("customer-anonymize", kwargs={"pk": customer.pk}))
     assert response.status_code == 200
     customer.refresh_from_db()
-    assert (customer.name, customer.phone, customer.email, customer.notes) == ("Cliente removido", "", "", "")
+    assert (customer.name, customer.phone, customer.email, customer.notes) == (
+        "Cliente removido",
+        "",
+        "",
+        "",
+    )
     assert customer.appointments.count() == 1
     item = AppointmentItem.objects.get(appointment=appointment)
     assert item.commission_percentage == Decimal("20.00")
     appointment.refresh_from_db()
     assert appointment.notes == ""
-    assert AuditLog.objects.filter(organization=organization, action=AuditLog.Action.CUSTOMER_ANONYMIZED).count() == 1
+    assert (
+        AuditLog.objects.filter(
+            organization=organization, action=AuditLog.Action.CUSTOMER_ANONYMIZED
+        ).count()
+        == 1
+    )
 
 
 def test_professional_nao_pode_exportar_ou_anonimizar(professional_client, organization):
     customer = CustomerFactory(organization=organization)
-    assert professional_client.get(reverse("customer-export", kwargs={"pk": customer.pk})).status_code == 403
-    assert professional_client.post(reverse("customer-anonymize", kwargs={"pk": customer.pk})).status_code == 403
+    assert (
+        professional_client.get(reverse("customer-export", kwargs={"pk": customer.pk})).status_code
+        == 403
+    )
+    assert (
+        professional_client.post(
+            reverse("customer-anonymize", kwargs={"pk": customer.pk})
+        ).status_code
+        == 403
+    )
 
 
 class TestCriarCliente:
