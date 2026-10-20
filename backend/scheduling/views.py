@@ -106,6 +106,12 @@ class AppointmentListCreateView(TenantSerializerContextMixin, generics.ListCreat
         organization, membership = resolve_membership(self.request)
         params = self.request.query_params
         date = params.get("date")
+        date_from = params.get("date_from")
+        date_to = params.get("date_to")
+        if bool(date_from) != bool(date_to):
+            raise ValidationError({"date_from": "Informe date_from e date_to juntos."})
+        if date and (date_from or date_to):
+            raise ValidationError({"date": "Use date ou o intervalo date_from/date_to."})
         if date:
             from datetime import date as Date
 
@@ -113,6 +119,18 @@ class AppointmentListCreateView(TenantSerializerContextMixin, generics.ListCreat
                 date = Date.fromisoformat(date)
             except ValueError as exc:
                 raise ValidationError({"date": "Informe a data no formato YYYY-MM-DD."}) from exc
+        if date_from and date_to:
+            from datetime import date as Date
+
+            try:
+                date_from = Date.fromisoformat(date_from)
+                date_to = Date.fromisoformat(date_to)
+            except ValueError as exc:
+                raise ValidationError(
+                    {"date_from": "Informe datas no formato YYYY-MM-DD."}
+                ) from exc
+            if date_from >= date_to:
+                raise ValidationError({"date_to": "A data final deve ser posterior à inicial."})
         professional = params.get("professional")
         customer = params.get("customer")
         for field, value in (("professional", professional), ("customer", customer)):
@@ -124,6 +142,8 @@ class AppointmentListCreateView(TenantSerializerContextMixin, generics.ListCreat
         queryset = selectors.list_appointments(
             organization,
             date=date,
+            date_from=date_from,
+            date_to=date_to,
             professional=professional,
             status=status_value,
             customer=customer,

@@ -55,7 +55,16 @@ def load_availability_data(
     return links, hours, time_offs, busy_items
 
 
-def list_appointments(organization, *, date=None, professional=None, status=None, customer=None):
+def list_appointments(
+    organization,
+    *,
+    date=None,
+    date_from=None,
+    date_to=None,
+    professional=None,
+    status=None,
+    customer=None,
+):
     queryset = (
         Appointment.objects.filter(organization=organization)
         .select_related("customer", "created_by__user")
@@ -68,16 +77,18 @@ def list_appointments(organization, *, date=None, professional=None, status=None
             )
         )
     )
-    if date:
+    if date or date_from or date_to:
         from datetime import date as Date
 
-        if isinstance(date, str):
-            date = Date.fromisoformat(date)
         tz = ZoneInfo(organization.timezone)
-        start = timezone.make_aware(datetime.combine(date, time.min), tz).astimezone(UTC)
-        end = timezone.make_aware(
-            datetime.combine(date + timedelta(days=1), time.min), tz
-        ).astimezone(UTC)
+        if date_from or date_to:
+            start_date = date_from if isinstance(date_from, Date) else Date.fromisoformat(date_from)
+            end_date = date_to if isinstance(date_to, Date) else Date.fromisoformat(date_to)
+        else:
+            start_date = date if isinstance(date, Date) else Date.fromisoformat(date)
+            end_date = start_date + timedelta(days=1)
+        start = timezone.make_aware(datetime.combine(start_date, time.min), tz).astimezone(UTC)
+        end = timezone.make_aware(datetime.combine(end_date, time.min), tz).astimezone(UTC)
         queryset = queryset.filter(items__start_at__gte=start, items__start_at__lt=end)
     if professional:
         queryset = queryset.filter(items__professional_id=professional)
