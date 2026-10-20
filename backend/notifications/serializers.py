@@ -69,7 +69,7 @@ class WaitlistEntrySerializer(serializers.ModelSerializer):
 class PublicWaitlistEntrySerializer(serializers.Serializer):
     name = serializers.CharField(max_length=120, trim_whitespace=True)
     phone = serializers.CharField(max_length=20, trim_whitespace=True)
-    email = serializers.EmailField(max_length=254)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True, default="")
     consent = serializers.BooleanField()
     service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.none())
     professional = serializers.PrimaryKeyRelatedField(

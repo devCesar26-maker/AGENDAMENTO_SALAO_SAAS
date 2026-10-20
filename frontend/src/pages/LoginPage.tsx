@@ -4,6 +4,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { useAuth } from "../lib/auth-context";
 import { errorMessage } from "../lib/api";
+import { Button, Input } from "../components/ui";
 
 const loginSchema = z.object({
   email: z.string().email("Informe um e-mail válido"),
@@ -44,12 +45,12 @@ export function LoginPage() {
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
               E-mail
             </label>
-            <input
+            <Input
               id="email"
               type="email"
               autoComplete="email"
               {...register("email")}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
+              className="w-full"
             />
             {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
           </div>
@@ -58,12 +59,12 @@ export function LoginPage() {
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
               Senha
             </label>
-            <input
+            <Input
               id="password"
               type="password"
               autoComplete="current-password"
               {...register("password")}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
+              className="w-full"
             />
             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
           </div>
@@ -74,13 +75,13 @@ export function LoginPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={isSubmitting}
-            className="button-primary button-wide"
+            className="button-wide"
           >
             {isSubmitting ? "Entrando…" : "Entrar"}
-          </button>
+          </Button>
         </form>
         <p className="register-footer"><a href="/esqueci-senha">Esqueci minha senha</a></p>
         <p className="register-footer">Ainda não tem conta? <a href="/cadastro">Criar meu espaço</a></p>

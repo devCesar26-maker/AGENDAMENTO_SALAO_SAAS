@@ -22,7 +22,7 @@ export function PublicBookingPage() {
     setError("");
     try {
       await api.post("/public/waitlist/", { name: data.name, phone: data.phone, email: data.email, consent: data.consent, service: data.service, professional: data.professional, desired_date: data.desired_date }, tenantConfig);
-      complete("Inscrição registrada", "Você entrou na lista de espera. Avisaremos por e-mail se surgir um horário; a vaga não fica reservada.");
+      complete("Inscrição registrada", "Você entrou na lista de espera. O salão entrará em contato se surgir uma vaga. Ela não fica reservada.");
     } catch (cause) { setError(errorMessage(cause)); }
   };
   if (!slug) return <main className="grid min-h-screen place-items-center p-5"><p role="alert" className="panel max-w-lg p-6 text-center">Não foi possível identificar o salão. Acesse o link de reserva enviado pelo estabelecimento.</p></main>;

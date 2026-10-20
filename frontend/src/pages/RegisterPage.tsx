@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, errorMessage } from "../lib/api";
+import { Button, Input, Select } from "../components/ui";
 
 type Vertical = "SALAO" | "BARBEARIA";
 type Registration = {
@@ -67,16 +68,16 @@ export function RegisterPage() {
         <p className="muted-copy">Comece a organizar seu salão ou barbearia.</p>
         <form className="register-form" onSubmit={submit}>
           <div className="form-columns">
-            <label className="field-label">Seu nome<input className="field-input" autoComplete="given-name" required maxLength={150} value={values.first_name} onChange={(event) => update("first_name", event.target.value)} /></label>
-            <label className="field-label">Sobrenome<input className="field-input" autoComplete="family-name" maxLength={150} value={values.last_name} onChange={(event) => update("last_name", event.target.value)} /></label>
+            <label className="field-label">Seu nome<Input autoComplete="given-name" required maxLength={150} value={values.first_name} onChange={(event) => update("first_name", event.target.value)} /></label>
+            <label className="field-label">Sobrenome<Input autoComplete="family-name" maxLength={150} value={values.last_name} onChange={(event) => update("last_name", event.target.value)} /></label>
           </div>
-          <label className="field-label">E-mail<input className="field-input" type="email" autoComplete="email" required value={values.email} onChange={(event) => update("email", event.target.value)} /></label>
-          <label className="field-label">Senha<input className="field-input" type="password" autoComplete="new-password" minLength={8} required value={values.password} onChange={(event) => update("password", event.target.value)} /><span className="helper-copy">Use uma senha forte. O cadastro valida os critérios de segurança do sistema.</span></label>
-          <label className="field-label">Nome do estabelecimento<input className="field-input" autoComplete="organization" required maxLength={120} value={values.organization_name} onChange={(event) => update("organization_name", event.target.value)} /></label>
-          <label className="field-label">Tipo de estabelecimento<select className="field-input" value={values.vertical} onChange={(event) => update("vertical", event.target.value as Vertical)}><option value="SALAO">Salão</option><option value="BARBEARIA">Barbearia</option></select></label>
-          <label className="field-label">Telefone do estabelecimento <span>(opcional)</span><input className="field-input" type="tel" autoComplete="tel" maxLength={20} value={values.organization_phone} onChange={(event) => update("organization_phone", event.target.value)} /></label>
+          <label className="field-label">E-mail<Input type="email" autoComplete="email" required value={values.email} onChange={(event) => update("email", event.target.value)} /></label>
+          <label className="field-label">Senha<Input type="password" autoComplete="new-password" minLength={8} required value={values.password} onChange={(event) => update("password", event.target.value)} /><span className="helper-copy">Use uma senha forte. O cadastro valida os critérios de segurança do sistema.</span></label>
+          <label className="field-label">Nome do estabelecimento<Input autoComplete="organization" required maxLength={120} value={values.organization_name} onChange={(event) => update("organization_name", event.target.value)} /></label>
+          <label className="field-label">Tipo de estabelecimento<Select value={values.vertical} onChange={(event) => update("vertical", event.target.value as Vertical)}><option value="SALAO">Salão</option><option value="BARBEARIA">Barbearia</option></Select></label>
+          <label className="field-label">Telefone do estabelecimento <span>(opcional)</span><Input type="tel" autoComplete="tel" maxLength={20} value={values.organization_phone} onChange={(event) => update("organization_phone", event.target.value)} /></label>
           {error && <p className="notice-error" role="alert">{error}</p>}
-          <button className="button-primary button-wide register-submit" disabled={submitting}>{submitting ? "Criando seu espaço…" : "Criar conta"}</button>
+          <Button type="submit" className="button-wide register-submit" disabled={submitting}>{submitting ? "Criando seu espaço…" : "Criar conta"}</Button>
         </form>
         <p className="register-footer">Já tem uma conta? <a href="/login">Entrar</a></p>
       </section>

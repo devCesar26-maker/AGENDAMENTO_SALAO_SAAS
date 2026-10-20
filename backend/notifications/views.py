@@ -83,7 +83,9 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
             customer_services.lock_customer_identity(
                 organization, phone=data["phone"], email=data["email"]
             )
-            identity = Q(phone=data["phone"]) | Q(email__iexact=data["email"])
+            identity = Q(phone=data["phone"])
+            if data["email"]:
+                identity |= Q(email__iexact=data["email"])
             matches = list(
                 Customer.objects.select_for_update()
                 .filter(organization=organization)
@@ -99,7 +101,7 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
                 customer = matches[0]
                 if (
                     customer.phone != data["phone"]
-                    or customer.email.casefold() != data["email"].casefold()
+                    or (data["email"] and customer.email.casefold() != data["email"].casefold())
                 ):
                     raise serializers.ValidationError(
                         "Os contatos informados não correspondem ao cadastro existente. "
@@ -134,7 +136,7 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
             {
                 "id": entry.pk,
                 "desired_date": entry.desired_date,
-                "detail": "Você entrou na lista de espera. Avisaremos por e-mail se surgir um horário.",
+                "detail": "Sua inscrição na lista de espera foi registrada.",
             },
             status=status.HTTP_201_CREATED,
         )
