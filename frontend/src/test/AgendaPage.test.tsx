@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { AgendaPage } from "../pages/AgendaPage";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
@@ -22,7 +23,7 @@ describe("AgendaPage", () => {
   it("creates an appointment from an available slot", async () => {
     const user = userEvent.setup();
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><AgendaPage /></QueryClientProvider>);
+    render(<MemoryRouter><QueryClientProvider client={client}><AgendaPage /></QueryClientProvider></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: "Slot vago" }));
     await user.click(screen.getByRole("button", { name: /Corte/ }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
