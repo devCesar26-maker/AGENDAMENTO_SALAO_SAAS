@@ -176,7 +176,7 @@ export function ServicesPage() {
           />
         </FormField>
         {save.isError && <p role="alert" className="notice-error">{errorMessage(save.error)}</p>}
-        <Button className="button-wide" disabled={save.isPending}>
+        <Button type="submit" className="button-wide" disabled={save.isPending}>
           {save.isPending ? "Salvando…" : "Salvar serviço"}
         </Button>
       </form>
@@ -211,7 +211,7 @@ export function ServicesPage() {
           />
         </FormField>
         {createCategory.isError && <p role="alert" className="notice-error">{errorMessage(createCategory.error)}</p>}
-        <Button className="button-wide" disabled={createCategory.isPending}>
+        <Button type="submit" className="button-wide" disabled={createCategory.isPending}>
           {createCategory.isPending ? "Salvando…" : "Adicionar categoria"}
         </Button>
       </form>

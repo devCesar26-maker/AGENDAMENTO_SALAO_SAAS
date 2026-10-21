@@ -175,7 +175,7 @@ export function ProfessionalsPage() {
                           <FormField label="Comissão (%)">
                             <input className="field-input" type="number" {...linkForm.register("commission_percentage", { valueAsNumber: true })} />
                           </FormField>
-                          <Button variant="secondary" className="self-end">Vincular serviço</Button>
+                          <Button variant="secondary" type="submit" className="self-end">Vincular serviço</Button>
                         </form>
                       )}
                     </section>
@@ -207,7 +207,7 @@ export function ProfessionalsPage() {
                         <FormField label="Fim">
                           <input className="field-input" type="time" {...hoursForm.register("end_time")} />
                         </FormField>
-                        <Button variant="secondary" className="self-end">Adicionar horário</Button>
+                        <Button variant="secondary" type="submit" className="self-end">Adicionar horário</Button>
                       </form>
                     </section>
                     <section className="detail-section">
@@ -231,7 +231,7 @@ export function ProfessionalsPage() {
                         <FormField label="Motivo">
                           <input className="field-input" {...timeoffForm.register("reason")} />
                         </FormField>
-                        <Button variant="secondary" className="self-end">Adicionar bloqueio</Button>
+                        <Button variant="secondary" type="submit" className="self-end">Adicionar bloqueio</Button>
                       </form>
                     </section>
                   </>
