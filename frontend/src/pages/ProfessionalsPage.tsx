@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { DashboardHeader } from "../components/DashboardHeader";
 import { api, errorMessage } from "../lib/api";
 import { Modal, Button, Card, FormField, SkeletonList, toast } from "../components/ui";
 
@@ -31,7 +30,7 @@ export function ProfessionalsPage() {
   const linkForm = useForm({ resolver: zodResolver(linkSchema), defaultValues: { service: 0, price_override: "", duration_override: "", commission_percentage: 0 } });
   const hoursForm = useForm({ resolver: zodResolver(hoursSchema), defaultValues: { weekday: 0, start_time: "09:00", end_time: "18:00" } });
   const timeoffForm = useForm({ resolver: zodResolver(timeoffSchema), defaultValues: { start_date: "", end_date: "", reason: "" } });
-  const reload = async () => { await client.invalidateQueries({ queryKey: ["professionals"] }); if (selected) await client.invalidateQueries({ queryKey: ["professional-detail", selected.id] }); };
+  const reload = async () => { await client.invalidateQueries({ queryKey: ["professionals"] }); if (selected) { await client.invalidateQueries({ queryKey: ["professional-detail", selected.id] }); const cached = client.getQueryData<Row<Professional>>(["professionals"]); const updated = cached ? rows(cached).find(person => person.id === selected.id) : undefined; if (updated) setSelected(updated); } };
   const selectProfessional = (person: Professional) => {
     setSelected(person);
     if (window.matchMedia("(max-width: 979px)").matches) {
@@ -56,8 +55,7 @@ export function ProfessionalsPage() {
   const startEdit = (person: Professional) => { setEditing(person); profileForm.reset({ name: person.name, photo: person.photo }); setProfileOpen(true); };
 
   return (
-    <div className="app-shell">
-      <DashboardHeader current="Profissionais" />
+    <>
       <main className="page-content">
         <div className="page-heading">
           <div>
@@ -261,6 +259,6 @@ export function ProfessionalsPage() {
           </Button>
         </form>
       </Modal>
-    </div>
+    </>
   );
 }

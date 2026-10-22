@@ -1,0 +1,41 @@
+html[data-theme="light"] {
+  color: #1a1a22;
+  --surface: #ffffff;
+  --surface-raised: #f4f4f8;
+  --surface-overlay: #ececf2;
+  --stroke: #d8d8e2;
+  --ink: #121218;
+  --muted: #5c5c6a;
+  --accent: #6366f1;
+  --accent-strong: #4f46e5;
+  --accent-hover: #4338ca;
+}
+
+html[data-theme="light"] body {
+  background: linear-gradient(135deg, #f7f7fb 0%, #eef0f8 50%, #f5f5fa 100%);
+  color: var(--ink);
+}
+
+html[data-theme="light"] body::before {
+  background-image: linear-gradient(color-mix(in srgb, #f7f7fb var(--workspace-shade), transparent), color-mix(in srgb, #f7f7fb var(--workspace-shade), transparent)), var(--workspace-backdrop);
+}
+
+html[data-theme="light"] .panel {
+  box-shadow: 0 12px 32px rgb(15 23 42 / 8%);
+}
+
+html[data-theme="light"] .field-input {
+  background: #ffffff;
+  border-color: #c8c8d4;
+  color: var(--ink);
+}
+
+html[data-theme="light"] .app-sidebar,
+html[data-theme="light"] .app-mobile-topbar {
+  background: rgb(255 255 255 / 96%);
+  border-color: var(--stroke);
+}
+
+html[data-theme="light"] .sidebar-link.is-active {
+  background: rgb(99 102 241 / 12%);
+}

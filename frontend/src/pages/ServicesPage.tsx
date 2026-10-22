@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api";
-import { DashboardHeader } from "../components/DashboardHeader";
-import { Modal, Button, Card, FormField, SkeletonList, toast } from "../components/ui";
+import { Modal, Button, FormField, SkeletonList, toast } from "../components/ui";
 
 type Row<T> = T[] | { results: T[] };
 type Category = { id: number; name: string; is_active: boolean };
@@ -30,75 +29,99 @@ export function ServicesPage() {
   function startEdit(service: Service) { setEditing(service); setForm({ category: service.category, name: service.name, description: service.description, duration_minutes: service.duration_minutes, price: service.price, buffer_minutes: service.buffer_minutes, is_active: service.is_active }); setFormOpen(true); }
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(form); }
 
-  return <div className="app-shell">
-    <DashboardHeader current="Serviços" />
-    <main className="page-content">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">CATÁLOGO</p>
+  return <>
+    <main className="services-page">
+      <div className="services-header">
+        <div className="services-title">
           <h1>Serviços</h1>
-          <p className="muted-copy">Organize o que seu espaço oferece, com duração e valores.</p>
+          <p className="services-subtitle">Cuide de cada detalhe do seu catálogo</p>
         </div>
-        <Button onClick={startCreate} disabled={!categories.data?.length}>
-          Adicionar serviço
-        </Button>
+        <button
+          className="services-btn-primary"
+          onClick={startCreate}
+          disabled={!categories.data?.length}
+        >
+          + Novo serviço
+        </button>
       </div>
+
       {!categories.isLoading && !categories.data?.length && (
-        <div className="notice-card">
-          Cadastre uma categoria para começar. <Button variant="secondary" onClick={() => setCategoryOpen(true)}>Criar categoria</Button>
+        <div className="services-empty-category">
+          <div className="services-empty-icon">✨</div>
+          <h3>Comece criando uma categoria</h3>
+          <p>Organize seus serviços por categorias como Cabelo, Barba, Unhas</p>
+          <button
+            className="services-btn-secondary"
+            onClick={() => setCategoryOpen(true)}
+          >
+            Criar categoria
+          </button>
         </div>
       )}
+
       {!!categories.data?.length && (
-        <div className="catalog-toolbar">
-          <Button variant="secondary" onClick={() => setCategoryOpen(true)}>
+        <div className="services-toolbar">
+          <button
+            className="services-btn-text"
+            onClick={() => setCategoryOpen(true)}
+          >
             Gerenciar categorias
-          </Button>
+          </button>
         </div>
       )}
+
       {(services.isError || categories.isError) && (
-        <p className="notice-error" role="alert">
+        <div className="services-error">
           Não foi possível carregar o catálogo. {errorMessage(services.error ?? categories.error)}
-        </p>
+        </div>
       )}
+
       {services.isLoading ? (
-        <div className="panel loading-panel p-8">
+        <div className="services-loading">
           <SkeletonList count={4} />
         </div>
       ) : (
-        <div className="service-grid">
+        <div className="services-grid">
           {services.data?.map((service) => (
-            <Card className="service-card card-hover" key={service.id}>
-              <div className="service-card-top">
-                <span className="service-symbol">✦</span>
-                <span className={`status-pill ${service.is_active ? "status-active" : "status-inactive"}`}>
+            <div className="services-card" key={service.id}>
+              <div className="services-card-header">
+                <span className="services-category">{service.category_name}</span>
+                <span className={`services-status ${service.is_active ? "active" : "inactive"}`}>
                   {service.is_active ? "Ativo" : "Inativo"}
                 </span>
               </div>
-              <p className="eyebrow">{service.category_name}</p>
-              <h2>{service.name}</h2>
-              <p className="service-description">{service.description || "Sem descrição"}</p>
-              <div className="service-facts">
-                <span>{service.duration_minutes} min</span>
-                <strong>R$ {service.price}</strong>
+              <h3 className="services-card-title">{service.name}</h3>
+              <p className="services-card-description">{service.description || "Sem descrição"}</p>
+              <div className="services-card-meta">
+                <span className="services-duration">{service.duration_minutes} min</span>
+                <span className="services-price">R$ {service.price}</span>
               </div>
-              <div className="service-actions">
-                <Button variant="secondary" onClick={() => startEdit(service)}>
+              <div className="services-card-actions">
+                <button
+                  className="services-btn-outline"
+                  onClick={() => startEdit(service)}
+                >
                   Editar
-                </Button>
-                <Button variant="secondary" disabled={toggle.isPending} onClick={() => toggle.mutate(service)}>
+                </button>
+                <button
+                  className={`services-btn-toggle ${service.is_active ? "active" : "inactive"}`}
+                  disabled={toggle.isPending}
+                  onClick={() => toggle.mutate(service)}
+                >
                   {service.is_active ? "Desativar" : "Ativar"}
-                </Button>
+                </button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
+
       {!services.isLoading && services.data?.length === 0 && (
-        <Card className="empty-state">
-          <span>✧</span>
-          <h2>Seu catálogo começa aqui</h2>
-          <p>Adicione o primeiro serviço para disponibilizá-lo na agenda.</p>
-        </Card>
+        <div className="services-empty">
+          <div className="services-empty-icon">💆</div>
+          <h3>Seu catálogo está vazio</h3>
+          <p>Adicione o primeiro serviço para começar a receber agendamentos</p>
+        </div>
       )}
     </main>
     <Modal
@@ -216,5 +239,5 @@ export function ServicesPage() {
         </Button>
       </form>
     </Modal>
-  </div>;
+  </>;
 }

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, size = "md", className = "" }: ModalProps) {
+  const titleId = useId();
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -18,6 +19,23 @@ export function Modal({ isOpen, onClose, title, children, size = "md", className
     }
     return () => {
       document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement;
+    return () => {
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
   }, [isOpen]);
 
@@ -37,12 +55,12 @@ export function Modal({ isOpen, onClose, title, children, size = "md", className
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? "modal-title" : undefined}
+        aria-labelledby={title ? titleId : undefined}
       >
         {title && (
           <div className="panel-heading">
             <div>
-              <h2 id="modal-title" className="font-serif text-xl">{title}</h2>
+              <h2 id={titleId} className="font-serif text-xl">{title}</h2>
             </div>
             <button
               className="icon-button"

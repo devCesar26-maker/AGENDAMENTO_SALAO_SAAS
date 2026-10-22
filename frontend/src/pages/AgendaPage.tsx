@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppointmentWizard, type BookingData } from "../components/AppointmentWizard";
-import { DashboardHeader } from "../components/DashboardHeader";
+import { MobileFab } from "../components/MobileFab";
 import { api, errorMessage } from "../lib/api";
 import { Modal, Skeleton, SkeletonList, Button, Card } from "../components/ui";
+import { CalendarPlus } from "lucide-react";
 import { toast } from "../components/ui";
 
 type Row<T> = T[] | { results: T[] };
@@ -23,7 +24,11 @@ const statusLabel: Record<string, string> = { SCHEDULED: "Agendado", CONFIRMED: 
 export function AgendaPage() {
   const qc = useQueryClient();
   const today = localDate(new Date());
-  const [nowTimestamp] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [selectedDate, setSelectedDate] = useState(today);
   const [range, setRange] = useState<CalendarRange>(() => {
     const start = new Date(`${today}T12:00:00`);
@@ -35,6 +40,14 @@ export function AgendaPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [active, setActive] = useState<Appointment | null>(null);
   const [formError, setFormError] = useState("");
+  useEffect(() => {
+    if (!active) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setActive(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active]);
   const appointmentQuery = useQuery({
     queryKey: ["appointments", range.from, range.to],
     queryFn: async () => asRows((await api.get<Row<Appointment>>("/appointments/", { params: { date_from: range.from, date_to: range.to, page_size: 100 } })).data),
@@ -53,10 +66,11 @@ export function AgendaPage() {
     title: `${appointment.customer_name} · ${appointment.items.map(item => item.service_name).join(", ")}`,
     start: appointment.items[0].start_at,
     end: appointment.items[appointment.items.length - 1].end_at,
+    editable: !["CANCELED", "COMPLETED", "NO_SHOW"].includes(appointment.status),
     extendedProps: { appointment },
   })), [appointments]);
   const sortedAppointments = [...appointments].filter(appointment => appointment.items.length).sort((a, b) => appointmentStart(a).localeCompare(appointmentStart(b)));
-  const upcoming = sortedAppointments.filter(item => new Date(appointmentStart(item)).getTime() >= nowTimestamp).slice(0, 6);
+  const upcoming = sortedAppointments.filter(item => (item.status === "SCHEDULED" || item.status === "CONFIRMED") && new Date(appointmentStart(item)).getTime() >= now).slice(0, 6);
   const todayAppointments = sortedAppointments.filter(item => localDate(new Date(appointmentStart(item))) === today);
   const pendingCount = appointments.filter(item => item.status === "SCHEDULED").length;
   const openCreate = (arg?: { start: Date }) => { const date = arg ? localDate(arg.start) : today; setSelectedDate(date); setWizardOpen(true); setFormError(""); };
@@ -71,13 +85,13 @@ export function AgendaPage() {
     if (from && to) setRange(current => current.from === from && current.to === to ? current : { from, to });
   };
 
-  return <div className="app-shell">
-    <DashboardHeader current="Agenda" />
+  return <>
     <main className="page-content agenda-page">
       <section className="agenda-hero">
         <div className="agenda-hero-copy"><p className="eyebrow">SEU ESPAÇO, EM HARMONIA</p><h1>Agenda</h1><p className="muted-copy">Uma visão clara dos atendimentos e do ritmo da sua semana.</p></div>
-        <Button onClick={() => openCreate()} className="agenda-new-button">
-          <span aria-hidden="true">＋</span> Novo agendamento
+        <Button onClick={() => openCreate()} className="agenda-new-button agenda-new-button-desktop">
+          <CalendarPlus size={18} aria-hidden />
+          Novo agendamento
         </Button>
       </section>
       {formError && <div role="alert" className="notice-card notice-error agenda-alert">{formError}</div>}
@@ -151,7 +165,7 @@ export function AgendaPage() {
         <button className="icon-button" aria-label="Fechar" onClick={() => setWizardOpen(false)}>×</button>
       </div>
       {formError && <p role="alert" className="notice-error">{formError}</p>}
-      <AppointmentWizard key={selectedDate} mode="dashboard" initialDate={selectedDate} onConfirm={data => create.mutate(data)} />
+      <AppointmentWizard key={selectedDate} mode="dashboard" initialDate={selectedDate} isSubmitting={create.isPending} onConfirm={data => create.mutate(data)} />
       {create.isPending && <p role="status" className="helper-copy">Criando agendamento…</p>}
     </Modal>
     {active && (() => {
@@ -159,7 +173,7 @@ export function AgendaPage() {
       const isTerminal = status === "completed" || status === "canceled" || status === "no_show";
       return (
         <div className="agenda-drawer-backdrop" onClick={() => setActive(null)}>
-          <aside className="agenda-drawer" aria-label={`Detalhes do agendamento #${active.id}`} onClick={event => event.stopPropagation()}>
+          <aside className="agenda-drawer" role="dialog" aria-modal="true" aria-label={`Detalhes do agendamento #${active.id}`} onClick={event => event.stopPropagation()}>
             <div className="agenda-drawer-heading">
               <div>
                 <p className="eyebrow">AGENDAMENTO #{active.id}</p>
@@ -187,7 +201,7 @@ export function AgendaPage() {
                 {active.status === "SCHEDULED" && <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "CONFIRMED" })} className="w-full">Confirmar presença</Button>}
                 <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "COMPLETED" })} className="w-full">Marcar concluído</Button>
                 <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "NO_SHOW" })} className="w-full">Marcar não compareceu</Button>
-                <Button variant="ghost" onClick={() => cancel.mutate(active.id)} className="w-full button-danger">Cancelar agendamento</Button>
+                <Button variant="ghost" onClick={() => { if (window.confirm("Cancelar este agendamento? O horário será liberado.")) cancel.mutate(active.id); }} className="w-full button-danger">Cancelar agendamento</Button>
               </div>
             )}
             {(statusMutation.isError || cancel.isError) && <p role="alert" className="notice-error mt-3">{errorMessage(statusMutation.error ?? cancel.error)}</p>}
@@ -195,5 +209,6 @@ export function AgendaPage() {
         </div>
       );
     })()}
-  </div>;
+    <MobileFab label="Novo agendamento" onClick={() => openCreate()} />
+  </>;
 }

@@ -26,7 +26,7 @@ export function LoginPage() {
     setErro(null);
     try {
       await login(values.email, values.password);
-      window.location.assign("/app/agenda");
+      window.location.assign("/app");
     } catch (e) {
       setErro(errorMessage(e));
     }

@@ -3,11 +3,13 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./lib/auth-provider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AppLayout } from "./components/layout/AppLayout";
 import { ToastContainer } from "./components/ui";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { tenantSlugForHostname } from "./lib/useTenantSlug";
 
+const HomePage = lazy(() => import("./pages/HomePage").then(({ HomePage }) => ({ default: HomePage })));
 const AgendaPage = lazy(() =>
   import("./pages/AgendaPage").then(({ AgendaPage }) => ({ default: AgendaPage })),
 );
@@ -27,6 +29,7 @@ const MetricsPage = lazy(() => import("./pages/MetricsPage").then(({ MetricsPage
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then(({ NotificationsPage }) => ({ default: NotificationsPage })));
 const TeamPage = lazy(() => import("./pages/TeamPage").then(({ TeamPage }) => ({ default: TeamPage })));
 const OrganizationSettingsPage = lazy(() => import("./pages/OrganizationSettingsPage").then(({ OrganizationSettingsPage }) => ({ default: OrganizationSettingsPage })));
+const DevUiPage = lazy(() => import("./pages/DevUiPage").then(({ DevUiPage }) => ({ default: DevUiPage })));
 const InvitationAcceptPage = lazy(() => import("./pages/InvitationAcceptPage").then(({ InvitationAcceptPage }) => ({ default: InvitationAcceptPage })));
 const PasswordResetRequestPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetRequestPage }) => ({ default: PasswordResetRequestPage })));
 const PasswordResetConfirmPage = lazy(() => import("./pages/PasswordResetPage").then(({ PasswordResetConfirmPage }) => ({ default: PasswordResetConfirmPage })));
@@ -37,12 +40,16 @@ const queryClient = new QueryClient({
   },
 });
 
+function AppLoading() {
+  return <div className="loading-panel min-h-screen">Carregando…</div>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
-          <Suspense fallback={<div className="p-6 text-center text-slate-600">Carregando…</div>}>
+          <Suspense fallback={<AppLoading />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/esqueci-senha" element={<PasswordResetRequestPage />} />
@@ -51,29 +58,67 @@ export default function App() {
               <Route path="/convite/:token" element={<InvitationAcceptPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route
-                path="/app/agenda"
+                path="/app"
                 element={
                   <ProtectedRoute>
-                    <AgendaPage />
+                    <AppLayout />
                   </ProtectedRoute>
                 }
-              />
-              <Route
-                path="/app/servicos"
-                element={
-                  <ProtectedRoute roles={["OWNER", "MANAGER"]}>
-                    <ServicesPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/app/profissionais" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><ProfessionalsPage /></ProtectedRoute>} />
-              <Route path="/app/clientes" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><CustomersPage /></ProtectedRoute>} />
-              <Route path="/app/plano" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><PlanPage /></ProtectedRoute>} />
-              <Route path="/app/metricas" element={<ProtectedRoute><MetricsPage /></ProtectedRoute>} />
-              <Route path="/app/notificacoes" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><NotificationsPage /></ProtectedRoute>} />
-              <Route path="/app/equipe" element={<ProtectedRoute roles={["OWNER", "MANAGER"]}><TeamPage /></ProtectedRoute>} />
-              <Route path="/app/configuracoes" element={<ProtectedRoute><OrganizationSettingsPage /></ProtectedRoute>} />
-              <Route path="/app" element={<Navigate to="/app/agenda" replace />} />
+              >
+                <Route index element={<HomePage />} />
+                <Route path="agenda" element={<AgendaPage />} />
+                <Route
+                  path="servicos"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <ServicesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="profissionais"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <ProfessionalsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="clientes"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <CustomersPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="plano"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <PlanPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="metricas" element={<MetricsPage />} />
+                <Route
+                  path="notificacoes"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <NotificationsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="equipe"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <TeamPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="configuracoes" element={<OrganizationSettingsPage />} />
+                <Route path="dev/ui" element={<DevUiPage />} />
+              </Route>
               <Route path="/b/:slug" element={<PublicBookingPage />} />
               <Route path="/a/:token" element={<MagicLinkPage />} />
               <Route
@@ -82,11 +127,11 @@ export default function App() {
                   tenantSlugForHostname(window.location.hostname) ? (
                     <PublicBookingPage />
                   ) : (
-                    <Navigate to="/app/agenda" replace />
+                    <Navigate to="/app" replace />
                   )
                 }
               />
-              <Route path="*" element={<Navigate to="/app/agenda" replace />} />
+              <Route path="*" element={<Navigate to="/app" replace />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

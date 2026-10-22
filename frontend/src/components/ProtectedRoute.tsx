@@ -16,7 +16,7 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   }
   // PROFESSIONAL vê apenas a própria agenda/comissões: rotas de gestão exigem OWNER/MANAGER.
   if (roles && (!user.role || !roles.includes(user.role))) {
-    return <Navigate to="/app/agenda" replace />;
+    return <Navigate to="/app" replace />;
   }
   return <>{children}</>;
 }

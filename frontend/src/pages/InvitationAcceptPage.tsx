@@ -25,7 +25,7 @@ export function InvitationAcceptPage() {
         await login(info.data.email, values.password);
         await api.post(`/invitations/${token}/accept/`, values);
         await refreshUser?.();
-        window.location.assign("/app/agenda");
+        window.location.assign("/app");
         return;
       }
       const { data } = await api.post<{ access: string; refresh: string; role: AuthUser["role"]; organization: { id: number; slug: string } }>(`/invitations/${token}/accept/`, values);
@@ -33,7 +33,7 @@ export function InvitationAcceptPage() {
       setAccessToken(data.access);
       acceptSession?.(data.access, user);
       await refreshUser?.();
-      window.location.assign("/app/agenda");
+      window.location.assign("/app");
     } catch (error) { setFeedback(errorMessage(error)); }
   };
   const roleName = info.data?.role === "MANAGER" ? "gerente" : "profissional";

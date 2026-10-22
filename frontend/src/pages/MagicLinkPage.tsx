@@ -84,7 +84,9 @@ export function MagicLinkPage() {
   });
 
   const appointment = appointmentQuery.data;
-  const canceling = cancelMutation.isPending || cancelMutation.variables !== undefined;
+  // Só bloqueia enquanto a requisição está em andamento: após um erro o botão
+  // precisa voltar a funcionar para o cliente tentar novamente.
+  const canceling = cancelMutation.isPending;
 
   if (appointmentQuery.isError) {
     return (

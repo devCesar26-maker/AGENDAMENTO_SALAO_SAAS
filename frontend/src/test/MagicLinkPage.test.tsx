@@ -121,6 +121,6 @@ describe("MagicLinkPage", () => {
     );
     expect(
       screen.getByRole("button", { name: "Cancelar agendamento" })
-    ).toBeInTheDocument();
+    ).toBeEnabled();
   });
 });
