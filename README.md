@@ -1,5 +1,3 @@
-r
-
 # Éclat Studio
 
 SaaS multi-tenant de agendamento e gestão para **salões de beleza e barbearias**.
@@ -333,7 +331,7 @@ autenticação, alterações de dados ou de todos os endpoints do sistema.
 
 O frontend autenticado inclui catálogo de serviços para OWNER/MANAGER, com
 criação e edição de serviços e categorias. A aparência escura usa tons carvão
-e dourado; a imagem de fundo pode ser carregada nas preferências visuais e seus
+e roxo-índigo (#6366f1) sobre fundo escuro (#0a0a0f); a imagem de fundo pode ser carregada nas preferências visuais e seus
 níveis de sombra/desfoque e enquadramento são guardados no navegador, separados por organização.
 Essa preferência local ainda não é uma configuração compartilhada entre membros
 nem aparece no link público de reservas; isso depende de persistência de marca

@@ -37,5 +37,5 @@ extend-exclude = "migrations"
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 pythonpath = ["backend"]
 python_files = ["test_*.py"]
-addopts = "--reuse-db -q"
+addopts = "-q"
 testpaths = ["backend"]

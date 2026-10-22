@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from typing import ClassVar
+from zoneinfo import ZoneInfo
 
 from django.db import transaction
 from django.db.models import Q
@@ -19,7 +20,7 @@ from core.idempotency import IdempotencyConflict, execute_idempotently
 from customers import services as customer_services
 from customers.models import Customer
 from scheduling import services
-from scheduling.models import Appointment
+from scheduling.models import Appointment, AppointmentToken
 from scheduling.serializers import (
     AvailabilityQuerySerializer,
     AvailabilityResponseSerializer,
@@ -349,3 +350,92 @@ class PublicAppointmentCreateView(PublicAPIView):
         else:
             result = create_booking()
         return Response(result, status=status.HTTP_201_CREATED)
+
+
+def _load_appointment_token_or_reject(token_value: str):
+    """Retorna (token, resposta_de_erro). Erro só é preenchido quando o token é rejeitado."""
+    appointment_token = (
+        AppointmentToken.objects.filter(token=token_value)
+        .select_related("appointment", "appointment__customer", "appointment__organization")
+        .first()
+    )
+    if appointment_token is None:
+        return None, Response({"detail": "Este link é inválido."}, status=status.HTTP_404_NOT_FOUND)
+    if appointment_token.used_at is not None:
+        return None, Response(
+            {"detail": "Este link já foi utilizado."}, status=status.HTTP_410_GONE
+        )
+    if appointment_token.expires_at <= timezone.now():
+        return None, Response(
+            {"detail": "Este link expirou. Peça um novo ao salão."}, status=status.HTTP_410_GONE
+        )
+    return appointment_token, None
+
+
+def _magic_appointment_payload(appointment_token: AppointmentToken) -> dict:
+    """Somente dados que o próprio cliente já conhece; nada é filtrado por request."""
+    appointment = appointment_token.appointment
+    tz = ZoneInfo(appointment.organization.timezone)
+    return {
+        "status": appointment.status,
+        "organization_name": appointment.organization.name,
+        "customer_name": appointment.customer.name,
+        "can_cancel": (
+            appointment.status in (Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED)
+        ),
+        "expires_at": appointment_token.expires_at.isoformat(),
+        "items": [
+            {
+                "service": item.service.name,
+                "professional": item.professional.name,
+                "start_at": timezone.localtime(item.start_at, tz).isoformat(),
+                "end_at": timezone.localtime(item.end_at, tz).isoformat(),
+            }
+            for item in appointment.items.select_related("service", "professional").order_by(
+                "order"
+            )
+        ],
+    }
+
+
+class PublicAppointmentMagicLinkView(PublicAPIView):
+    """GET do link mágico: detalhes de UM agendamento identificado pelo token."""
+
+    @extend_schema(responses={200: dict, 404: dict, 410: dict})
+    def get(self, request, token: str):
+        appointment_token, rejection = _load_appointment_token_or_reject(token)
+        if rejection is not None:
+            return rejection
+        # O tenant vem do token (dado único de 32 bytes), nunca do request;
+        # a resposta só contém dados do agendamento ao qual o token pertence.
+        return Response(_magic_appointment_payload(appointment_token))
+
+
+class PublicAppointmentMagicLinkCancelView(PublicAPIView):
+    """POST do link mágico: cancela o agendamento e consome o token (uso único)."""
+
+    @extend_schema(responses={200: dict, 404: dict, 409: dict, 410: dict})
+    def post(self, request, token: str):
+        appointment_token, rejection = _load_appointment_token_or_reject(token)
+        if rejection is not None:
+            return rejection
+        appointment = appointment_token.appointment
+        if appointment.status not in (
+            Appointment.Status.SCHEDULED,
+            Appointment.Status.CONFIRMED,
+        ):
+            return Response(
+                {"detail": "Este agendamento não pode mais ser cancelado online."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        with transaction.atomic():
+            locked = AppointmentToken.objects.select_for_update().get(pk=appointment_token.pk)
+            if locked.used_at is not None:
+                return Response(
+                    {"detail": "Este link já foi utilizado."}, status=status.HTTP_410_GONE
+                )
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at", "updated_at"])
+            services.change_appointment_status(appointment, Appointment.Status.CANCELED, actor=None)
+        locked.refresh_from_db(fields=["appointment"])
+        return Response(_magic_appointment_payload(locked))

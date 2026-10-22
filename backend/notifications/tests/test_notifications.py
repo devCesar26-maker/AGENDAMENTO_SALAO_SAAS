@@ -224,7 +224,9 @@ def test_lembretes_apenas_na_janela_sem_reenvio_e_sem_n_plus_one(
     mail.outbox.clear()
 
     # As consultas crescem por lote/tenant, não por agendamento individual.
-    with django_assert_num_queries(9):
+    # Além das 9 do lote de lembrete, 2 são por LOTE (e não por agendamento):
+    # busca dos tokens do link mágico + bulk_create dos que faltam.
+    with django_assert_num_queries(11):
         assert send_appointment_reminders.run() == 2
 
     appointment.refresh_from_db()

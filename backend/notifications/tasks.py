@@ -27,7 +27,7 @@ from notifications.selectors import (
 from scheduling.models import Appointment
 
 
-def _appointment_email_context(appointment):
+def _appointment_email_context(appointment, magic_token=None):
     tz = ZoneInfo(appointment.organization.timezone)
     items = [
         {
@@ -44,7 +44,16 @@ def _appointment_email_context(appointment):
         "appointment": appointment,
         "items": items,
         "first_item": items[0] if items else None,
+        "manage_link": _magic_link_for(appointment, magic_token),
     }
+
+
+def _magic_link_for(appointment, token=None):
+    """Link mágico (visualizar/cancelar) gerado junto com a criação do agendamento."""
+    from scheduling.services import ensure_magic_link_token
+
+    token = token if token is not None else ensure_magic_link_token(appointment)
+    return f"{settings.FRONTEND_URL.rstrip('/')}/a/{token.token}"
 
 
 def _send_appointment_email(appointment, *, subject_template, body_template):
@@ -101,11 +110,20 @@ def send_appointment_reminders():
 
 def _send_reminder_batch(appointments, now):
     messages = []
+    from scheduling.services import tokens_for_appointments
+
+    # Tokens do link mágico em UMA consulta para o lote inteiro (sem N+1).
+    magic_tokens = tokens_for_appointments(
+        [appointment.pk for appointment in appointments],
+        appointments[0].organization,
+    )
     for appointment in appointments:
         recipient = appointment.customer.notification_contact.email
         if not recipient:
             continue
-        context = _appointment_email_context(appointment)
+        context = _appointment_email_context(
+            appointment, magic_token=magic_tokens.get(appointment.pk)
+        )
         subject = (
             render_to_string("notifications/email/appointment_reminder_subject.txt", context)
             .strip()

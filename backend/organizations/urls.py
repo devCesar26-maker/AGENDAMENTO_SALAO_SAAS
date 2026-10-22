@@ -19,6 +19,16 @@ urlpatterns = [
         name="organization-invitation-detail",
     ),
     path(
+        "organizations/<slug:slug>/webhooks/",
+        views.WebhookListCreateView.as_view(),
+        name="organization-webhooks",
+    ),
+    path(
+        "organizations/<slug:slug>/webhooks/<int:pk>/",
+        views.WebhookDetailView.as_view(),
+        name="organization-webhook-detail",
+    ),
+    path(
         "organizations/<slug:slug>/members/",
         views.MemberListView.as_view(),
         name="organization-members",

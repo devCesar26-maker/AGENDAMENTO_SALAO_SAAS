@@ -5,7 +5,7 @@ Serializers de salões, membros e convites (campos sempre explícitos).
 from rest_framework import serializers
 
 from organizations import services
-from organizations.models import Invitation, Membership, Organization
+from organizations.models import Invitation, Membership, Organization, WebhookConfig
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -124,3 +124,38 @@ class InvitationAcceptSerializer(serializers.Serializer):
     )
     first_name = serializers.CharField(required=False, max_length=150)
     last_name = serializers.CharField(required=False, max_length=150)
+
+
+class WebhookConfigSerializer(serializers.ModelSerializer):
+    """CRUD de webhook do salão. `secret` NUNCA é serializado (só na criação)."""
+
+    events = serializers.ListField(
+        child=serializers.ChoiceField(choices=WebhookConfig.Event.choices),
+        allow_empty=False,
+        max_length=len(WebhookConfig.Event.values),
+    )
+
+    class Meta:
+        model = WebhookConfig
+        fields = [
+            "id",
+            "url",
+            "events",
+            "is_active",
+            "last_failure_at",
+            "last_failure_detail",
+            "created_at",
+        ]
+        read_only_fields = ["id", "last_failure_at", "last_failure_detail", "created_at"]
+
+    def validate_url(self, value: str) -> str:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(value)
+        if parsed.scheme != "https":
+            raise serializers.ValidationError("A URL do webhook precisa usar HTTPS.")
+        return value
+
+    def validate_events(self, value: list[str]) -> list[str]:
+        # Deduplica e ordena para fingerprint estável do payload assinado.
+        return sorted(set(value))

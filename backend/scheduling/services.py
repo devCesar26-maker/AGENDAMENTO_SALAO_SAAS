@@ -10,7 +10,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from catalog.models import Professional, ProfessionalService
 from core.sanitization import sanitize_free_text
-from scheduling.models import Appointment, AppointmentItem
+from scheduling.models import Appointment, AppointmentItem, AppointmentToken
 from scheduling.selectors import load_availability_data
 
 SLOT_STEP_MINUTES = 15
@@ -320,7 +320,53 @@ def create_appointment(
 
     mark_waitlist_entries_converted(appointment)
     queue_appointment_notification(appointment, NotificationEvent.Kind.CONFIRMATION)
+    ensure_magic_link_token(appointment)
+    from organizations.models import WebhookConfig
+    from organizations.services import schedule_appointment_webhook
+
+    schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_CREATED, appointment)
     return appointment
+
+
+def ensure_magic_link_token(appointment: Appointment) -> AppointmentToken:
+    """Um token VIEW por agendamento para o link mágico; criado na transação da criação."""
+    token = appointment.tokens.filter(action=AppointmentToken.Action.VIEW).first()
+    if token is None:
+        token = AppointmentToken.objects.create(
+            organization=appointment.organization,
+            appointment=appointment,
+            action=AppointmentToken.Action.VIEW,
+        )
+    return token
+
+
+def tokens_for_appointments(appointment_ids, organization) -> dict:
+    """Tokens VIEW em lote: 1-2 consultas pelo lote inteiro, nunca uma por agendamento.
+
+    Tokens que faltam (agendamentos criados fora do fluxo normal) são criados
+    em um único ``bulk_create`` com a mesma validade padrão de 7 dias.
+    """
+    tokens = list(
+        AppointmentToken.objects.filter(
+            organization=organization,
+            appointment_id__in=list(appointment_ids),
+            action=AppointmentToken.Action.VIEW,
+        )
+    )
+    with_tokens = {token.appointment_id for token in tokens}
+    missing = [
+        AppointmentToken(
+            organization=organization,
+            appointment_id=appointment_id,
+            action=AppointmentToken.Action.VIEW,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        for appointment_id in appointment_ids
+        if appointment_id not in with_tokens
+    ]
+    if missing:
+        tokens.extend(AppointmentToken.objects.bulk_create(missing))
+    return {token.appointment_id: token for token in tokens}
 
 
 @transaction.atomic
@@ -408,7 +454,13 @@ def change_appointment_status(appointment, status_value, *, actor=None):
     previous_status = appointment.status
     appointment.status = status_value
     appointment.save(update_fields=["status", "updated_at"])
+    from organizations.models import WebhookConfig
+    from organizations.services import schedule_appointment_webhook
+
+    if status_value == Appointment.Status.COMPLETED and previous_status != status_value:
+        schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_COMPLETED, appointment)
     if status_value == Appointment.Status.CANCELED and previous_status != status_value:
+        schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_CANCELED, appointment)
         from analytics.models import AuditLog
         from analytics.services import record_audit
 

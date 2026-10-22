@@ -10,7 +10,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
-from core.models import TenantScopedManager, TimeStampedModel
+from core.models import TenantModel, TenantScopedManager, TimeStampedModel
 
 
 class Organization(TimeStampedModel):
@@ -151,3 +151,54 @@ class Invitation(TimeStampedModel):
     @property
     def is_valid(self) -> bool:
         return self.accepted_at is None and timezone.now() < self.expires_at
+
+
+class WebhookConfig(TenantModel):
+    """Endpoint de saída (HTTPS) de um salão, com eventos assinados e segredo HMAC."""
+
+    objects = TenantScopedManager()
+
+    class Event(models.TextChoices):
+        APPOINTMENT_CREATED = "appointment.created", "Agendamento criado"
+        APPOINTMENT_COMPLETED = "appointment.completed", "Agendamento concluído"
+        APPOINTMENT_CANCELED = "appointment.canceled", "Agendamento cancelado"
+
+    url = models.URLField("endpoint", max_length=500, help_text="Deve usar HTTPS.")
+    events = models.JSONField(
+        "eventos assinados",
+        default=list,
+        help_text="Lista de eventos; use apenas valores válidos de Event.",
+    )
+    secret = models.CharField(
+        "segredo",
+        max_length=64,
+        unique=True,
+        editable=False,
+        help_text="HMAC-SHA256 do payload. Gerado automaticamente; nunca é retornado depois da resposta de criação.",
+    )
+    is_active = models.BooleanField("ativo", default=True)
+    last_failure_at = models.DateTimeField(
+        "última falha em", null=True, blank=True, help_text="Data da última entrega que falhou."
+    )
+    last_failure_detail = models.CharField(
+        "detalhe da última falha", max_length=500, blank=True, default=""
+    )
+
+    class Meta:
+        verbose_name = "configuração de webhook"
+        verbose_name_plural = "configurações de webhook"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "url"),
+                name="uniq_webhook_url_per_organization",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id} → {self.url}"
+
+    def save(self, *args, **kwargs):
+        if not self.secret:
+            self.secret = secrets.token_hex(32)
+        super().save(*args, **kwargs)

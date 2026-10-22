@@ -14,6 +14,9 @@ const AgendaPage = lazy(() =>
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage").then(({ PublicBookingPage }) => ({ default: PublicBookingPage })),
 );
+const MagicLinkPage = lazy(() =>
+  import("./pages/MagicLinkPage").then(({ MagicLinkPage }) => ({ default: MagicLinkPage })),
+);
 const ServicesPage = lazy(() =>
   import("./pages/ServicesPage").then(({ ServicesPage }) => ({ default: ServicesPage })),
 );
@@ -72,6 +75,7 @@ export default function App() {
               <Route path="/app/configuracoes" element={<ProtectedRoute><OrganizationSettingsPage /></ProtectedRoute>} />
               <Route path="/app" element={<Navigate to="/app/agenda" replace />} />
               <Route path="/b/:slug" element={<PublicBookingPage />} />
+              <Route path="/a/:token" element={<MagicLinkPage />} />
               <Route
                 path="/"
                 element={

@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from core.api.exceptions import BusinessError
-from organizations.models import Invitation, Membership, Organization
+from organizations.models import Invitation, Membership, Organization, WebhookConfig
 
 
 def _invitation_api_error(field: str | None, detail: str):
@@ -178,6 +178,42 @@ def update_member(
             object_id=membership.pk,
         )
     return membership
+
+
+def create_webhook_config(*, organization, url: str, events: list[str]) -> WebhookConfig:
+    """Cria/atualiza config de webhook do salão; secret é opaco e constante."""
+    webhook, created = WebhookConfig.objects.get_or_create(
+        organization=organization,
+        url=url,
+        defaults={"events": events},
+    )
+    if not created:
+        webhook.events = sorted(set(webhook.events) | set(events))
+        webhook.is_active = True
+        webhook.save(update_fields=["events", "is_active", "updated_at"])
+    return webhook
+
+
+def schedule_appointment_webhook(event: str, appointment) -> None:
+    """
+    Agenda o disparo assíncrono de webhook APÓS o commit da transação
+    corrente: sem `.delay` antes do commit o worker poderia ler a linha
+    antes dela existir. A task resolve os próprios inscritos;
+    nunca bloqueia o request.
+    """
+    from organizations.models import WebhookConfig as _W
+    from organizations.tasks import dispatch_webhook_event
+
+    if event not in _W.Event.values:
+        return
+    transaction.on_commit(
+        lambda: dispatch_webhook_event.delay(
+            event,
+            appointment.organization_id,
+            appointment.pk,
+            occurred_at=timezone.now().isoformat(),
+        )
+    )
 
 
 def validar_working_hours(value) -> None:

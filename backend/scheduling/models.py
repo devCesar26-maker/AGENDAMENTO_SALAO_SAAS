@@ -1,6 +1,10 @@
 """Agendamentos e snapshots dos serviços que compõem cada atendimento."""
 
+import secrets
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 
 from core.models import TenantModel
 
@@ -65,3 +69,40 @@ class AppointmentItem(TenantModel):
             )
         ]
         indexes = [models.Index(fields=["professional", "start_at", "end_at"])]
+
+
+class AppointmentToken(TenantModel):
+    """Token seguro para acesso público a um agendamento específico (link mágico)."""
+
+    class Action(models.TextChoices):
+        VIEW = "VIEW", "Visualizar"
+        CANCEL = "CANCEL", "Cancelar"
+
+    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="tokens")
+    token = models.CharField(
+        "token", max_length=64, unique=True, db_index=True, default=secrets.token_urlsafe
+    )
+    action = models.CharField("ação", max_length=10, choices=Action.choices, default=Action.VIEW)
+    expires_at = models.DateTimeField("expira em")
+    used_at = models.DateTimeField("usado em", null=True, blank=True)
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=7)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        return (
+            self.used_at is None
+            and self.expires_at > timezone.now()
+            and self.appointment.status
+            in [Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED]
+        )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["token", "expires_at"]),
+            models.Index(fields=["appointment", "expires_at"]),
+        ]

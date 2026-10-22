@@ -19,6 +19,16 @@ urlpatterns = [
         public.PublicAppointmentCreateView.as_view(),
         name="public-appointment-create",
     ),
+    path(
+        "public/appointments/tokens/<str:token>/",
+        public.PublicAppointmentMagicLinkView.as_view(),
+        name="public-appointment-magic-link",
+    ),
+    path(
+        "public/appointments/tokens/<str:token>/cancel/",
+        public.PublicAppointmentMagicLinkCancelView.as_view(),
+        name="public-appointment-magic-link-cancel",
+    ),
     path("availability/", views.AvailabilityView.as_view(), name="availability"),
     path(
         "appointments/",

@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from core.api.pagination import DefaultPagination
 from organizations import selectors, services
-from organizations.models import Invitation, Membership
+from organizations.models import Invitation, Membership, WebhookConfig
 from organizations.permissions import (
     IsOrganizationManagerOrOwner,
     IsOrganizationMember,
@@ -23,6 +23,7 @@ from organizations.serializers import (
     InvitationSerializer,
     MemberSerializer,
     OrganizationSerializer,
+    WebhookConfigSerializer,
 )
 
 
@@ -160,6 +161,43 @@ class InvitationAcceptView(APIView):
             },
             "role": membership.role,
         }
+
+
+class WebhookListCreateView(OrganizationSlugMixin, generics.ListCreateAPIView):
+    """CRUD de webhooks de saída do próprio salão — apenas OWNER/MANAGER."""
+
+    permission_classes = [IsOrganizationManagerOrOwner]
+    serializer_class = WebhookConfigSerializer
+    pagination_class = DefaultPagination
+    queryset = WebhookConfig.objects.none()
+
+    def get_queryset(self):
+        # Isolamento de tenant: apenas configs do salão informado na URL autenticada.
+        return WebhookConfig.objects.filter(organization=self.get_organization()).order_by(
+            "-created_at"
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        webhook = services.create_webhook_config(
+            organization=self.get_organization(),
+            url=serializer.validated_data["url"],
+            events=serializer.validated_data["events"],
+        )
+        data = self.serializer_class(webhook).data
+        # O secret é devolvido uma única vez, na resposta da criação.
+        data["secret"] = webhook.secret
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class WebhookDetailView(OrganizationSlugMixin, generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsOrganizationManagerOrOwner]
+    serializer_class = WebhookConfigSerializer
+    queryset = WebhookConfig.objects.none()
+
+    def get_queryset(self):
+        return WebhookConfig.objects.filter(organization=self.get_organization())
 
 
 class MemberListView(OrganizationSlugMixin, generics.ListAPIView):
