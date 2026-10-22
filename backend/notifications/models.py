@@ -1,5 +1,7 @@
 """Lista de espera e estado de entrega de notificações."""
 
+import secrets
+
 from django.db import models
 from django.utils import timezone
 
@@ -33,6 +35,57 @@ class WaitlistEntry(TenantModel):
         return f"{self.customer} — {self.service} em {self.desired_date}"
 
 
+class WaitlistOffer(TenantModel):
+    """Oferta exclusiva e temporária de um item liberado para o primeiro da fila."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Ativa"
+        CONVERTED = "CONVERTED", "Convertida"
+        EXPIRED = "EXPIRED", "Expirada"
+
+    entry = models.ForeignKey(
+        WaitlistEntry, on_delete=models.CASCADE, related_name="priority_offers"
+    )
+    appointment_item = models.ForeignKey(
+        "scheduling.AppointmentItem", on_delete=models.CASCADE, related_name="waitlist_offers"
+    )
+    token = models.CharField(
+        "token", max_length=64, unique=True, db_index=True, default=secrets.token_urlsafe
+    )
+    expires_at = models.DateTimeField("expira em", db_index=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    converted_appointment = models.ForeignKey(
+        "scheduling.Appointment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="converted_waitlist_offers",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("appointment_item",),
+                condition=models.Q(status="ACTIVE"),
+                name="uniq_active_offer_per_item",
+            ),
+            models.UniqueConstraint(
+                fields=("entry",),
+                condition=models.Q(status="ACTIVE"),
+                name="uniq_active_offer_per_entry",
+            ),
+        ]
+        indexes = [models.Index(fields=["organization", "status", "expires_at"])]
+
+    def __str__(self):
+        return f"{self.entry} — {self.appointment_item}"
+
+    @property
+    def is_active(self):
+        return self.status == self.Status.ACTIVE and self.expires_at > timezone.now()
+
+
 class NotificationEvent(TenantModel):
     """Outbox transacional para que indisponibilidade do broker não perca e-mails."""
 
@@ -40,6 +93,9 @@ class NotificationEvent(TenantModel):
         CONFIRMATION = "CONFIRMATION", "Confirmação de agendamento"
         CANCELLATION = "CANCELLATION", "Cancelamento de agendamento"
         WAITLIST_OPENING = "WAITLIST_OPENING", "Vaga aberta da lista de espera"
+        WAITLIST_PRIORITY = "WAITLIST_PRIORITY", "Oferta prioritária da lista de espera"
+        RATING_REQUEST = "RATING_REQUEST", "Pedido de avaliação"
+        RECURRING_SUGGESTION = "RECURRING_SUGGESTION", "Sugestão de recorrência"
 
     class State(models.TextChoices):
         PENDING = "PENDING", "Pendente"
@@ -48,6 +104,13 @@ class NotificationEvent(TenantModel):
 
     appointment = models.ForeignKey(
         "scheduling.Appointment",
+        on_delete=models.CASCADE,
+        related_name="notification_events",
+    )
+    waitlist_offer = models.ForeignKey(
+        WaitlistOffer,
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name="notification_events",
     )
@@ -62,7 +125,7 @@ class NotificationEvent(TenantModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=("appointment", "kind"),
+                fields=("appointment", "kind", "waitlist_offer"),
                 name="uniq_notification_event_appointment_kind",
             )
         ]

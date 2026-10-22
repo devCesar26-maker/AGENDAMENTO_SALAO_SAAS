@@ -10,8 +10,8 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from catalog.models import Professional, ProfessionalService
 from core.sanitization import sanitize_free_text
-from scheduling.models import Appointment, AppointmentItem, AppointmentToken
-from scheduling.selectors import load_availability_data
+from scheduling.models import Appointment, AppointmentItem, AppointmentToken, FlashSlot
+from scheduling.selectors import load_availability_data, professional_rating_scores
 
 SLOT_STEP_MINUTES = 15
 WEEKDAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -87,6 +87,9 @@ def calcular_slots_disponiveis(
     *,
     slot_step_minutes=SLOT_STEP_MINUTES,
     exclude_appointment_id=None,
+    customer=None,
+    ignore_waitlist_offer_id=None,
+    apply_flash=True,
 ):
     """Retorna inícios disponíveis e a atribuição de profissionais para cada item.
 
@@ -94,6 +97,8 @@ def calcular_slots_disponiveis(
     pode ser objeto/ID ou ``None``/``"any"`` para seleção automática. Os serviços
     são encadeados na ordem recebida e o buffer do item fica entre esse item e o
     seguinte. Apenas slots começando em incrementos de 15 minutos são oferecidos.
+    ``customer`` personaliza o desempate por avaliações; ``ignore_waitlist_offer_id``
+    só deve ser usado pelo detentor do link prioritário da lista de espera.
     """
     if not services or len(services) != len(professionals):
         return []
@@ -109,7 +114,7 @@ def calcular_slots_disponiveis(
         return []
     window_start = min(start for start, _ in organization_intervals)
     window_end = max(end for _, end in organization_intervals)
-    links, hours, time_offs, busy_items = load_availability_data(
+    links, hours, time_offs, busy_items, waitlist_holds, flash_slots = load_availability_data(
         organization,
         services,
         date,
@@ -120,12 +125,20 @@ def calcular_slots_disponiveis(
     links_by_service = {}
     for link in links:
         links_by_service.setdefault(link.service_id, []).append(link)
+    specific_scores, general_scores = professional_rating_scores(organization, customer)
 
     options = []
     for service, requested_professional in zip(services, professionals, strict=True):
         requested_id = getattr(requested_professional, "pk", requested_professional)
         if requested_id in (None, "any"):
             service_links = links_by_service.get(service.pk, [])
+            # Ordenação estável: melhor nota primeiro; sem histórico, mantém a ordem.
+            service_links = sorted(
+                service_links,
+                key=lambda link: -specific_scores.get(
+                    link.professional_id, general_scores.get(link.professional_id, 0)
+                ),
+            )
         else:
             service_links = [
                 link
@@ -135,6 +148,12 @@ def calcular_slots_disponiveis(
         options.append(service_links)
     if any(not service_links for service_links in options):
         return []
+
+    flash_by_key = (
+        {(slot.service_id, slot.professional_id, slot.start_at): slot for slot in flash_slots}
+        if apply_flash
+        else {}
+    )
 
     work_cache = {}
 
@@ -166,6 +185,15 @@ def calcular_slots_disponiveis(
             existing_end = existing.end_at + timedelta(minutes=existing.buffer_minutes)
             if _overlaps(start, occupied_until, existing_start, existing_end):
                 return False
+        for hold in waitlist_holds:
+            if hold.pk == ignore_waitlist_offer_id:
+                continue
+            item = hold.appointment_item
+            if item.professional_id != professional_id:
+                continue
+            hold_end = item.end_at + timedelta(minutes=item.buffer_minutes)
+            if _overlaps(start, occupied_until, item.start_at, hold_end):
+                return False
         return True
 
     def assign_sequence(index, cursor, opening_end, proposed):
@@ -194,7 +222,16 @@ def calcular_slots_disponiveis(
                     link.price_override if link.price_override is not None else service.price
                 ),
                 "commission_percentage": link.commission_percentage,
+                "discount_percent": 0,
+                "flash_slot": None,
             }
+            flash_slot = flash_by_key.get((service.pk, link.professional_id, cursor))
+            if flash_slot is not None:
+                snapshot.update(
+                    price=flash_slot.discount_price,
+                    discount_percent=flash_slot.discount_percent,
+                    flash_slot=flash_slot,
+                )
             result = assign_sequence(index + 1, occupied_until, opening_end, [*proposed, snapshot])
             if result is not None:
                 return result
@@ -246,17 +283,63 @@ def _validate_booking_data(organization, customer, items, membership):
 
 @transaction.atomic
 def create_appointment(
-    *, organization, customer, items, desired_start, membership, notes="", origin=None
+    *,
+    organization,
+    customer,
+    items,
+    desired_start,
+    membership,
+    notes="",
+    origin=None,
+    status=None,
+    check_limit=True,
+    notify=True,
+    waitlist_offer=None,
+    suggestion_expires_at=None,
 ):
-    """Bloqueia profissionais, revalida o slot e cria snapshots atomicamente."""
+    """Bloqueia profissionais, revalida o slot e cria snapshots atomicamente.
+
+    ``waitlist_offer`` libera o hold exclusivo apenas para o link prioritário que
+    está sendo convertido. ``notify=False`` é usado por sugestões preditivas, que
+    ainda não são reservas confirmadas.
+    """
     from billing.services import check_appointment_limit
 
-    check_appointment_limit(organization)
+    if check_limit:
+        check_appointment_limit(organization)
     _validate_booking_data(organization, customer, items, membership)
     if timezone.is_naive(desired_start):
         raise ValidationError({"start_at": "Informe um horário com fuso horário."})
     desired_start = desired_start.astimezone(UTC)
     ordered_items = sorted(items, key=lambda value: value["order"])
+
+    offer = None
+    ignore_offer_id = None
+    if waitlist_offer is not None:
+        from notifications.models import WaitlistOffer
+
+        offer = (
+            WaitlistOffer.objects.select_for_update()
+            .select_related("appointment_item", "entry")
+            .filter(pk=waitlist_offer.pk, organization=organization)
+            .first()
+        )
+        if offer is None or not offer.is_active:
+            raise SlotUnavailable()
+        if len(ordered_items) != 1:
+            raise ValidationError({"items": "O link prioritário cobre apenas um serviço."})
+        requested = ordered_items[0]
+        offered = offer.appointment_item
+        if (
+            requested["service"].pk != offered.service_id
+            or requested["professional"].pk != offered.professional_id
+            or desired_start != offered.start_at
+        ):
+            raise ValidationError(
+                {"items": "O link prioritário só permite reservar o item ofertado."}
+            )
+        ignore_offer_id = offer.pk
+
     professional_ids = sorted({item["professional"].pk for item in ordered_items})
     locked_professionals = list(
         Professional.objects.select_for_update()
@@ -279,6 +362,7 @@ def create_appointment(
             appointment__status__in=[
                 Appointment.Status.SCHEDULED,
                 Appointment.Status.CONFIRMED,
+                Appointment.Status.SUGGESTED,
             ],
         )
         .select_related("service", "appointment")
@@ -287,7 +371,16 @@ def create_appointment(
     services = [item["service"] for item in ordered_items]
     professionals = [item["professional"] for item in ordered_items]
     local_date = desired_start.astimezone(ZoneInfo(organization.timezone)).date()
-    slots = calcular_slots_disponiveis(organization, services, professionals, local_date)
+    slots = calcular_slots_disponiveis(
+        organization,
+        services,
+        professionals,
+        local_date,
+        customer=customer,
+        ignore_waitlist_offer_id=ignore_offer_id,
+        exclude_appointment_id=offer.converted_appointment_id if offer else None,
+        apply_flash=(status or Appointment.Status.SCHEDULED) != Appointment.Status.SUGGESTED,
+    )
     selected = next((slot for slot in slots if slot["start_at"] == desired_start), None)
     if selected is None:
         raise SlotUnavailable()
@@ -298,8 +391,14 @@ def create_appointment(
         created_by=membership,
         notes=sanitize_free_text(notes),
         origin=origin or Appointment.Origin.DASHBOARD,
+        status=status or Appointment.Status.SCHEDULED,
+        suggestion_expires_at=suggestion_expires_at,
     )
+    used_flash_slots = []
     for order, snapshot in enumerate(selected["items"]):
+        flash_slot = snapshot.get("flash_slot")
+        if flash_slot is not None:
+            used_flash_slots.append(flash_slot.pk)
         AppointmentItem.objects.create(
             organization=organization,
             appointment=appointment,
@@ -311,20 +410,35 @@ def create_appointment(
             buffer_minutes=snapshot["buffer_minutes"],
             price=snapshot["price"],
             commission_percentage=snapshot["commission_percentage"],
+            discount_percent=snapshot.get("discount_percent", 0),
+            flash_slot=flash_slot,
         )
-    from notifications.models import NotificationEvent
-    from notifications.services import (
-        mark_waitlist_entries_converted,
-        queue_appointment_notification,
-    )
+    if used_flash_slots:
+        FlashSlot.objects.filter(
+            organization=organization,
+            pk__in=used_flash_slots,
+            status=FlashSlot.Status.ACTIVE,
+        ).update(status=FlashSlot.Status.BOOKED)
+    if offer is not None:
+        offer.status = offer.Status.CONVERTED
+        offer.converted_appointment = appointment
+        offer.save(update_fields=["status", "converted_appointment", "updated_at"])
+        offer.entry.converted_at = timezone.now()
+        offer.entry.save(update_fields=["converted_at", "updated_at"])
+    if notify:
+        from notifications.models import NotificationEvent
+        from notifications.services import (
+            mark_waitlist_entries_converted,
+            queue_appointment_notification,
+        )
 
-    mark_waitlist_entries_converted(appointment)
-    queue_appointment_notification(appointment, NotificationEvent.Kind.CONFIRMATION)
-    ensure_magic_link_token(appointment)
-    from organizations.models import WebhookConfig
-    from organizations.services import schedule_appointment_webhook
+        mark_waitlist_entries_converted(appointment)
+        queue_appointment_notification(appointment, NotificationEvent.Kind.CONFIRMATION)
+        ensure_magic_link_token(appointment)
+        from organizations.models import WebhookConfig
+        from organizations.services import schedule_appointment_webhook
 
-    schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_CREATED, appointment)
+        schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_CREATED, appointment)
     return appointment
 
 
@@ -338,6 +452,28 @@ def ensure_magic_link_token(appointment: Appointment) -> AppointmentToken:
             action=AppointmentToken.Action.VIEW,
         )
     return token
+
+
+def ensure_appointment_token(
+    appointment: Appointment, action: str, *, expires_at=None
+) -> AppointmentToken:
+    """Token de uso único por ação (avaliação, confirmação de sugestão etc.)."""
+    token = appointment.tokens.filter(action=action).order_by("-created_at").first()
+    if token is not None and token.used_at is None and token.expires_at > timezone.now():
+        return token
+    from django.conf import settings
+
+    days = settings.RATING_TOKEN_DAYS if action == AppointmentToken.Action.RATE else 7
+    return AppointmentToken.objects.create(
+        organization=appointment.organization,
+        appointment=appointment,
+        action=action,
+        expires_at=expires_at or (timezone.now() + timedelta(days=days)),
+    )
+
+
+def ensure_rating_token(appointment: Appointment) -> AppointmentToken:
+    return ensure_appointment_token(appointment, AppointmentToken.Action.RATE)
 
 
 def tokens_for_appointments(appointment_ids, organization) -> dict:
@@ -413,6 +549,7 @@ def reschedule_appointment(*, organization, appointment, desired_start):
             appointment__status__in=[
                 Appointment.Status.SCHEDULED,
                 Appointment.Status.CONFIRMED,
+                Appointment.Status.SUGGESTED,
             ],
         )
         .exclude(appointment_id=locked_appointment.pk)
@@ -453,12 +590,21 @@ def change_appointment_status(appointment, status_value, *, actor=None):
         raise ValidationError({"status": "Status de agendamento inválido."})
     previous_status = appointment.status
     appointment.status = status_value
-    appointment.save(update_fields=["status", "updated_at"])
+    update_fields = ["status", "updated_at"]
+    if status_value in (Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED):
+        appointment.suggestion_expires_at = None
+        update_fields.append("suggestion_expires_at")
+    appointment.save(update_fields=update_fields)
     from organizations.models import WebhookConfig
     from organizations.services import schedule_appointment_webhook
 
     if status_value == Appointment.Status.COMPLETED and previous_status != status_value:
         schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_COMPLETED, appointment)
+        from notifications.models import NotificationEvent
+        from notifications.services import queue_appointment_notification
+
+        ensure_rating_token(appointment)
+        queue_appointment_notification(appointment, NotificationEvent.Kind.RATING_REQUEST)
     if status_value == Appointment.Status.CANCELED and previous_status != status_value:
         schedule_appointment_webhook(WebhookConfig.Event.APPOINTMENT_CANCELED, appointment)
         from analytics.models import AuditLog
@@ -473,8 +619,11 @@ def change_appointment_status(appointment, status_value, *, actor=None):
             context={"status": status_value},
         )
         from notifications.models import NotificationEvent
-        from notifications.services import queue_appointment_notification
+        from notifications.services import (
+            queue_appointment_notification,
+            start_waitlist_priority_for_appointment,
+        )
 
         queue_appointment_notification(appointment, NotificationEvent.Kind.CANCELLATION)
-        queue_appointment_notification(appointment, NotificationEvent.Kind.WAITLIST_OPENING)
+        start_waitlist_priority_for_appointment(appointment)
     return appointment

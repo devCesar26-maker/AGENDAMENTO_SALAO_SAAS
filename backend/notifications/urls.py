@@ -18,4 +18,9 @@ urlpatterns = [
         views.PublicWaitlistEntryCreateView.as_view(),
         name="public-waitlist",
     ),
+    path(
+        "public/waitlist/offers/<str:token>/",
+        views.PublicWaitlistOfferView.as_view(),
+        name="public-waitlist-offer",
+    ),
 ]

@@ -24,7 +24,7 @@ bandit==1.8.6
     # via -r backend/requirements.in
 billiard==4.3.1
     # via celery
-black==26.3.1
+black==26.10.1
     # via -r backend/requirements.in
 boolean-py==5.0
     # via license-expression
@@ -81,7 +81,7 @@ django-debug-toolbar==5.2.0
     # via -r backend/requirements.in
 django-filter==25.2
     # via -r backend/requirements.in
-djangorestframework==3.17.2
+djangorestframework==3.18.2
     # via
     #   -r backend/requirements.in
     #   djangorestframework-simplejwt

@@ -1,0 +1,1 @@
+Reserva prioritária liberada — {{ organization.name }}

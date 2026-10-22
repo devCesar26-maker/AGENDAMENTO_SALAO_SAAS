@@ -133,3 +133,12 @@ class PublicWaitlistEntrySerializer(serializers.Serializer):
                 {"professional": "Profissional não oferece este serviço."}
             )
         return attrs
+
+
+class PublicWaitlistOfferBookSerializer(serializers.Serializer):
+    consent = serializers.BooleanField()
+
+    def validate_consent(self, value):
+        if not value:
+            raise serializers.ValidationError("O consentimento é necessário para reservar.")
+        return value

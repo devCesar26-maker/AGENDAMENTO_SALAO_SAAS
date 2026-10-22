@@ -29,6 +29,21 @@ urlpatterns = [
         public.PublicAppointmentMagicLinkCancelView.as_view(),
         name="public-appointment-magic-link-cancel",
     ),
+    path(
+        "public/ratings/<str:token>/",
+        public.PublicRatingView.as_view(),
+        name="public-rating",
+    ),
+    path(
+        "public/suggestions/<str:token>/",
+        public.PublicRecurringSuggestionView.as_view(),
+        name="public-suggestion",
+    ),
+    path(
+        "public/suggestions/<str:token>/<str:decision>/",
+        public.PublicRecurringSuggestionView.as_view(),
+        name="public-suggestion-decision",
+    ),
     path("availability/", views.AvailabilityView.as_view(), name="availability"),
     path(
         "appointments/",

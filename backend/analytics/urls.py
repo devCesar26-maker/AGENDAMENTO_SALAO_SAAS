@@ -10,6 +10,7 @@ urlpatterns = [
         views.MetricsProfessionalsView.as_view(),
         name="metrics-professionals",
     ),
+    path("insights/", views.InsightsView.as_view(), name="insights"),
     path(
         "exports/appointments/", views.AppointmentsExportView.as_view(), name="export-appointments"
     ),

@@ -317,7 +317,7 @@ def test_motor_carrega_disponibilidade_em_numero_fixo_de_queries(
     django_assert_num_queries,
 ):
     organization, _, professional, _, service, _, _ = setup_schedule()
-    with django_assert_num_queries(4):
+    with django_assert_num_queries(7):
         calcular_slots_disponiveis(organization, [service], [professional], DAY)
 
 

@@ -15,6 +15,7 @@ class AvailabilityQuerySerializer(serializers.Serializer):
     services = serializers.CharField()
     professional = serializers.CharField()
     date = serializers.DateField()
+    customer = serializers.IntegerField(required=False, min_value=1)
 
     def validate_services(self, value):
         if len(value) > 64:
@@ -237,6 +238,7 @@ class AppointmentItemSerializer(serializers.ModelSerializer):
             "buffer_minutes",
             "price",
             "commission_percentage",
+            "discount_percent",
         ]
 
 
@@ -267,3 +269,11 @@ class AppointmentStatusSerializer(serializers.Serializer):
 
 class AppointmentRescheduleSerializer(serializers.Serializer):
     start_at = serializers.DateTimeField()
+
+
+class RatingInputSerializer(serializers.Serializer):
+    score = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate_comment(self, value):
+        return sanitize_free_text(value)

@@ -18,7 +18,7 @@ from core.idempotency import (
     complete_side_effects,
     release_side_effects,
 )
-from notifications.models import NotificationEvent, WaitlistEntry
+from notifications.models import NotificationEvent, WaitlistEntry, WaitlistOffer
 from notifications.selectors import (
     appointment_for_notification,
     reminder_candidates,
@@ -201,6 +201,189 @@ def send_appointment_cancellation(appointment_id):
     )
 
 
+def _send_message_once(*, organization, context, key, recipient, subject, body):
+    if not recipient:
+        return False
+    claim_id = claim_side_effect(
+        organization=organization,
+        context=context,
+        key=key,
+        data={"recipient": recipient, "subject": subject, "body": body},
+    )
+    if claim_id is None:
+        return False
+    delivered = send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
+    if delivered != 1:
+        raise RuntimeError("O backend de e-mail não confirmou a notificação.")
+    complete_side_effect(claim_id)
+    return True
+
+
+@shared_task
+def send_waitlist_priority_offer(offer_id):
+    offer = (
+        WaitlistOffer.objects.select_related(
+            "organization",
+            "entry",
+            "entry__customer",
+            "entry__customer__responsavel",
+            "appointment_item",
+            "appointment_item__service",
+            "appointment_item__professional",
+            "appointment_item__appointment",
+        )
+        .filter(pk=offer_id)
+        .first()
+    )
+    if offer is None or not offer.is_active:
+        return False
+    recipient = offer.entry.customer.notification_contact.email
+    item = offer.appointment_item
+    tz = ZoneInfo(offer.organization.timezone)
+    context = {
+        "organization": offer.organization,
+        "customer": offer.entry.customer,
+        "service": item.service,
+        "professional": item.professional,
+        "start": timezone.localtime(item.start_at, tz),
+        "expires_at": timezone.localtime(offer.expires_at, tz),
+        "priority_url": f"{settings.FRONTEND_URL.rstrip('/')}/prioridade/{offer.token}",
+    }
+    subject = (
+        render_to_string("notifications/email/waitlist_priority_subject.txt", context)
+        .strip()
+        .replace("\n", " ")
+    )
+    body = render_to_string("notifications/email/waitlist_priority.txt", context)
+    return _send_message_once(
+        organization=offer.organization,
+        context="notification_waitlist_priority",
+        key=str(offer.pk),
+        recipient=recipient,
+        subject=subject,
+        body=body,
+    )
+
+
+@shared_task
+def send_rating_request(appointment_id):
+    appointment = appointment_for_notification(appointment_id)
+    if appointment is None or appointment.status != Appointment.Status.COMPLETED:
+        return False
+    from scheduling.services import ensure_rating_token
+
+    token = ensure_rating_token(appointment)
+    recipient = appointment.customer.notification_contact.email
+    context = _appointment_email_context(appointment)
+    context.update(
+        {
+            "rating_url": f"{settings.FRONTEND_URL.rstrip('/')}/avaliar/{token.token}",
+            "rating_expires_at": token.expires_at,
+        }
+    )
+    subject = (
+        render_to_string("notifications/email/rating_request_subject.txt", context)
+        .strip()
+        .replace("\n", " ")
+    )
+    body = render_to_string("notifications/email/rating_request.txt", context)
+    return _send_message_once(
+        organization=appointment.organization,
+        context="notification_rating_request",
+        key=str(appointment.pk),
+        recipient=recipient,
+        subject=subject,
+        body=body,
+    )
+
+
+@shared_task
+def send_recurring_suggestion(appointment_id):
+    appointment = appointment_for_notification(appointment_id)
+    if appointment is None or appointment.status != Appointment.Status.SUGGESTED:
+        return False
+    from scheduling.models import AppointmentToken
+    from scheduling.services import ensure_appointment_token
+
+    token = ensure_appointment_token(
+        appointment,
+        AppointmentToken.Action.CONFIRM,
+        expires_at=appointment.suggestion_expires_at,
+    )
+    recipient = appointment.customer.notification_contact.email
+    context = _appointment_email_context(appointment)
+    context.update(
+        {
+            "suggestion_url": f"{settings.FRONTEND_URL.rstrip('/')}/sugestao/{token.token}",
+            "suggestion_expires_at": appointment.suggestion_expires_at,
+        }
+    )
+    subject = (
+        render_to_string("notifications/email/recurring_suggestion_subject.txt", context)
+        .strip()
+        .replace("\n", " ")
+    )
+    body = render_to_string("notifications/email/recurring_suggestion.txt", context)
+    return _send_message_once(
+        organization=appointment.organization,
+        context="notification_recurring_suggestion",
+        key=str(appointment.pk),
+        recipient=recipient,
+        subject=subject,
+        body=body,
+    )
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
+def expire_waitlist_offers(batch_size=100):
+    """Expira holds vencidos e oferece o mesmo item ao próximo da fila."""
+    from notifications.services import offer_next_waitlist_entry_for_item
+
+    now = timezone.now()
+    with transaction.atomic():
+        offers = list(
+            WaitlistOffer.objects.select_for_update(skip_locked=True)
+            .filter(status=WaitlistOffer.Status.ACTIVE, expires_at__lte=now)
+            .select_related("appointment_item")
+            .order_by("expires_at")[:batch_size]
+        )
+        offer_ids = [offer.pk for offer in offers]
+        WaitlistOffer.objects.filter(pk__in=offer_ids).update(status=WaitlistOffer.Status.EXPIRED)
+    for offer in offers:
+        offer_next_waitlist_entry_for_item(offer.appointment_item)
+    return len(offers)
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
+def expire_suggested_appointments(batch_size=100):
+    """Libera sugestões não confirmadas após o prazo, sem cobrar nem notificar o cliente."""
+    from notifications.services import start_waitlist_priority_for_appointment
+    from scheduling.models import AppointmentToken
+
+    now = timezone.now()
+    with transaction.atomic():
+        appointments = list(
+            Appointment.objects.select_for_update(skip_locked=True)
+            .filter(
+                status=Appointment.Status.SUGGESTED,
+                suggestion_expires_at__lte=now,
+            )
+            .order_by("suggestion_expires_at")[:batch_size]
+        )
+        ids = [appointment.pk for appointment in appointments]
+        Appointment.objects.filter(pk__in=ids).update(
+            status=Appointment.Status.CANCELED,
+            suggestion_expires_at=None,
+        )
+        AppointmentToken.objects.filter(
+            appointment_id__in=ids, action=AppointmentToken.Action.CONFIRM, used_at__isnull=True
+        ).update(used_at=now)
+    for appointment in appointments:
+        appointment.status = Appointment.Status.CANCELED
+        start_waitlist_priority_for_appointment(appointment)
+    return len(appointments)
+
+
 @shared_task
 def notify_waitlist_for_canceled_appointment(appointment_id):
     appointment = appointment_for_notification(appointment_id)
@@ -294,6 +477,14 @@ def dispatch_notification_outbox(batch_size=50):
                 send_appointment_cancellation.run(appointment_id)
             elif event.kind == NotificationEvent.Kind.WAITLIST_OPENING:
                 notify_waitlist_for_canceled_appointment.run(appointment_id)
+            elif event.kind == NotificationEvent.Kind.WAITLIST_PRIORITY:
+                if event.waitlist_offer_id is None:
+                    raise ValueError("Oferta prioritária sem referência.")
+                send_waitlist_priority_offer.run(event.waitlist_offer_id)
+            elif event.kind == NotificationEvent.Kind.RATING_REQUEST:
+                send_rating_request.run(appointment_id)
+            elif event.kind == NotificationEvent.Kind.RECURRING_SUGGESTION:
+                send_recurring_suggestion.run(appointment_id)
             else:
                 raise ValueError("Tipo de notificação desconhecido.")
         except Exception as error:

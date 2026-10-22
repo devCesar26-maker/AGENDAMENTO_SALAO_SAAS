@@ -20,11 +20,12 @@ from core.idempotency import IdempotencyConflict, execute_idempotently
 from customers import services as customer_services
 from customers.models import Customer
 from scheduling import services
-from scheduling.models import Appointment, AppointmentToken
+from scheduling.models import Appointment, AppointmentToken, Rating
 from scheduling.serializers import (
     AvailabilityQuerySerializer,
     AvailabilityResponseSerializer,
     PublicAppointmentCreateSerializer,
+    RatingInputSerializer,
 )
 
 
@@ -190,6 +191,7 @@ class PublicAvailabilityView(PublicAPIView):
                                 "start_at": item["start_at"],
                                 "end_at": item["end_at"],
                                 "price": item["price"],
+                                "discount_percent": item.get("discount_percent", 0),
                             }
                             for item in slot["items"]
                         ],
@@ -439,3 +441,189 @@ class PublicAppointmentMagicLinkCancelView(PublicAPIView):
             services.change_appointment_status(appointment, Appointment.Status.CANCELED, actor=None)
         locked.refresh_from_db(fields=["appointment"])
         return Response(_magic_appointment_payload(locked))
+
+
+def _load_action_token(token_value: str, action: str):
+    token, rejection = _load_appointment_token_or_reject(token_value)
+    if rejection is not None:
+        return None, rejection
+    if token.action != action:
+        return None, Response({"detail": "Este link é inválido."}, status=status.HTTP_404_NOT_FOUND)
+    return token, None
+
+
+class PublicRatingView(PublicAPIView):
+    """GET mostra o atendimento; POST grava uma única avaliação e consome o token."""
+
+    def _payload(self, token):
+        appointment = token.appointment
+        tz = ZoneInfo(appointment.organization.timezone)
+        return {
+            "organization_name": appointment.organization.name,
+            "customer_name": appointment.customer.name,
+            "expires_at": token.expires_at.isoformat(),
+            "items": [
+                {
+                    "service": item.service.name,
+                    "professional": item.professional.name,
+                    "start_at": timezone.localtime(item.start_at, tz).isoformat(),
+                }
+                for item in appointment.items.select_related("service", "professional").order_by(
+                    "order"
+                )
+            ],
+        }
+
+    @extend_schema(responses={200: dict, 404: dict, 409: dict, 410: dict})
+    def get(self, request, token: str):
+        appointment_token, rejection = _load_action_token(token, AppointmentToken.Action.RATE)
+        if rejection is not None:
+            return rejection
+        appointment = appointment_token.appointment
+        if appointment.status != Appointment.Status.COMPLETED:
+            return Response(
+                {"detail": "Este atendimento ainda não pode ser avaliado."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if Rating.objects.filter(appointment=appointment).exists():
+            return Response(
+                {"detail": "Este atendimento já foi avaliado."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(self._payload(appointment_token))
+
+    @extend_schema(
+        request=RatingInputSerializer, responses={201: dict, 404: dict, 409: dict, 410: dict}
+    )
+    def post(self, request, token: str):
+        appointment_token, rejection = _load_action_token(token, AppointmentToken.Action.RATE)
+        if rejection is not None:
+            return rejection
+        serializer = RatingInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            locked = (
+                AppointmentToken.objects.select_for_update()
+                .select_related("appointment", "appointment__organization")
+                .get(pk=appointment_token.pk)
+            )
+            if locked.used_at is not None or locked.expires_at <= timezone.now():
+                return Response(
+                    {"detail": "Este link já foi utilizado ou expirou."},
+                    status=status.HTTP_410_GONE,
+                )
+            appointment = locked.appointment
+            if appointment.status != Appointment.Status.COMPLETED:
+                return Response(
+                    {"detail": "Este atendimento ainda não pode ser avaliado."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if Rating.objects.filter(appointment=appointment).exists():
+                return Response(
+                    {"detail": "Este atendimento já foi avaliado."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            rating = Rating.objects.create(
+                organization=appointment.organization,
+                appointment=appointment,
+                score=serializer.validated_data["score"],
+                comment=serializer.validated_data.get("comment", ""),
+            )
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at", "updated_at"])
+        return Response(
+            {"id": rating.pk, "score": rating.score, "detail": "Avaliação registrada."},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PublicRecurringSuggestionView(PublicAPIView):
+    """Confirmação ou recusa explícita de uma sugestão de recorrência."""
+
+    def _load(self, token):
+        appointment_token, rejection = _load_action_token(token, AppointmentToken.Action.CONFIRM)
+        if rejection is not None:
+            return None, rejection
+        appointment = appointment_token.appointment
+        if appointment.status != Appointment.Status.SUGGESTED:
+            return None, Response(
+                {"detail": "Esta sugestão não está mais disponível."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if (
+            appointment.suggestion_expires_at is None
+            or appointment.suggestion_expires_at <= timezone.now()
+        ):
+            return None, Response({"detail": "Esta sugestão expirou."}, status=status.HTTP_410_GONE)
+        return appointment_token, None
+
+    def _payload(self, token):
+        appointment = token.appointment
+        tz = ZoneInfo(appointment.organization.timezone)
+        return {
+            "organization_name": appointment.organization.name,
+            "customer_name": appointment.customer.name,
+            "status": appointment.status,
+            "expires_at": appointment.suggestion_expires_at.isoformat(),
+            "items": [
+                {
+                    "service": item.service.name,
+                    "professional": item.professional.name,
+                    "start_at": timezone.localtime(item.start_at, tz).isoformat(),
+                    "end_at": timezone.localtime(item.end_at, tz).isoformat(),
+                }
+                for item in appointment.items.select_related("service", "professional").order_by(
+                    "order"
+                )
+            ],
+        }
+
+    @extend_schema(responses={200: dict, 404: dict, 409: dict, 410: dict})
+    def get(self, request, token: str):
+        appointment_token, rejection = self._load(token)
+        if rejection is not None:
+            return rejection
+        return Response(self._payload(appointment_token))
+
+    @extend_schema(responses={200: dict, 404: dict, 409: dict, 410: dict})
+    def post(self, request, token: str, decision: str):
+        if decision not in {"confirm", "decline"}:
+            return Response({"detail": "Decisão inválida."}, status=status.HTTP_400_BAD_REQUEST)
+        appointment_token, rejection = self._load(token)
+        if rejection is not None:
+            return rejection
+        payload = self._payload(appointment_token)
+        with transaction.atomic():
+            locked = AppointmentToken.objects.select_for_update().get(pk=appointment_token.pk)
+            if locked.used_at is not None:
+                return Response(
+                    {"detail": "Este link já foi utilizado."}, status=status.HTTP_410_GONE
+                )
+            appointment = Appointment.objects.select_for_update().get(pk=locked.appointment_id)
+            if appointment.status != Appointment.Status.SUGGESTED:
+                return Response(
+                    {"detail": "Esta sugestão não está mais disponível."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if decision == "confirm":
+                appointment = services.change_appointment_status(
+                    appointment, Appointment.Status.CONFIRMED
+                )
+                from notifications.models import NotificationEvent
+                from notifications.services import queue_appointment_notification
+
+                queue_appointment_notification(appointment, NotificationEvent.Kind.CONFIRMATION)
+                services.ensure_magic_link_token(appointment)
+            else:
+                appointment.status = Appointment.Status.CANCELED
+                appointment.suggestion_expires_at = None
+                appointment.save(update_fields=["status", "suggestion_expires_at", "updated_at"])
+                from notifications.services import start_waitlist_priority_for_appointment
+
+                start_waitlist_priority_for_appointment(appointment)
+            locked.used_at = timezone.now()
+            locked.save(update_fields=["used_at", "updated_at"])
+        payload["status"] = appointment.status
+        if decision == "confirm":
+            payload["expires_at"] = None
+        return Response(payload)

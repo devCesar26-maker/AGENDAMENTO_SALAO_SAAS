@@ -57,8 +57,18 @@ class AvailabilityView(APIView):
                 {"detail": "Profissional não encontrado nesta organização."}, status=404
             )
         professionals = [professional_id] * len(service_list)
+        customer_id = query.validated_data.get("customer")
+        customer = None
+        if customer_id is not None:
+            customer = Customer.objects.filter(organization=organization, pk=customer_id).first()
+            if customer is None:
+                return Response({"detail": "Cliente não encontrado nesta organização."}, status=404)
         slots = services.calcular_slots_disponiveis(
-            organization, service_list, professionals, query.validated_data["date"]
+            organization,
+            service_list,
+            professionals,
+            query.validated_data["date"],
+            customer=customer,
         )
         return Response(
             {
@@ -75,6 +85,7 @@ class AvailabilityView(APIView):
                                 "end_at": item["end_at"],
                                 "price": item["price"],
                                 "commission_percentage": item["commission_percentage"],
+                                "discount_percent": item.get("discount_percent", 0),
                             }
                             for item in slot["items"]
                         ],

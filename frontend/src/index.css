@@ -540,6 +540,10 @@ input::placeholder, textarea::placeholder { color: #86868f; }
 .pagination-button { min-width: 40px; min-height: 40px; padding: .5rem; }
 .pagination-ellipsis { display: flex; align-items: center; padding: 0 .5rem; color: var(--muted); }
 
+/* Insights */
+.insight-card { border-left: 3px solid rgb(99 102 241 / 45%); }
+.insight-card.is-warning { border-left-color: rgb(251 191 36 / 60%); }
+
 /* Animations */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }

@@ -14,6 +14,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
     working_hours = serializers.JSONField(
         required=False, validators=[services.validar_working_hours]
     )
+    waitlist_priority_window_minutes = serializers.IntegerField(
+        required=False, min_value=1, max_value=60
+    )
+    flash_slot_max_discount_percent = serializers.IntegerField(
+        required=False, min_value=0, max_value=90
+    )
 
     class Meta:
         model = Organization
@@ -27,10 +33,19 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "phone",
             "address",
             "working_hours",
+            "waitlist_priority_window_minutes",
+            "flash_slot_max_discount_percent",
+            "platform_fee_percent",
             "is_active",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "vertical", "tema_cor"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "vertical",
+            "tema_cor",
+            "platform_fee_percent",
+        ]
 
     def validate_slug(self, value: str) -> str:
         """Slug editável, mas sempre único (case-sensitive baixo: slugify já minúsculas)."""

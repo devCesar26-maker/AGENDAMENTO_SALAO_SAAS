@@ -303,6 +303,88 @@ assinatura no Mercado Pago antes de aplicar a mudança: `authorized` ativa o
 tier contratado, `cancelled` rebaixa para FREE/CANCELED e `paused` ou `pending`
 rebaixa para FREE/PAST_DUE.
 
+### Recursos avançados de agenda
+
+Estes recursos ampliam a agenda e são todos multi-tenant (cada consulta passa
+por `for_tenant`/`resolve_membership`; `organization` nunca vem do payload).
+
+**1. Prioridade da lista de espera (FIFO com hold exclusivo).** Ao cancelar um
+agendamento, o sistema não avisa mais todos os inscritos compatíveis: escolhe a
+**primeira entrada FIFO** entre as que querem o **item compatível** (mesmo
+serviço e, se a entrada exigir, mesmo profissional, na **data exata** do horário
+liberado) e cria uma `WaitlistOffer` com token. Só essa pessoa recebe o e-mail
+com o link `/prioridade/<token>`; o horário fica **reservado** para ela até
+`waitlist_priority_window_minutes` (padrão 10, configurável por salão). Se o
+prazo expirar, a próxima entrada FIFO é ofertada. A reserva pelo link usa
+idempotência e só cria o **item ofertado** — demais itens do cancelamento são
+liberados normalmente. O motor de disponibilidade **oculta** horários com hold
+ativo, exceto para quem detém o token (`ignore_waitlist_offer_id`).
+
+**2. Insights acionáveis.** `GET /api/v1/insights/` (OWNER/MANAGER, paginado)
+devolve sugestões determinísticas em **7 queries fixas** (não cresce com o
+volume): baixa ocupação por faixa/período, clientes inativos há N dias, serviço
+em queda e desequilíbrio de agenda entre profissionais. Cada item traz
+`type`, `severity`, `message` e um `reference` estruturado. São **pistas**, não
+ações automáticas. O frontend mostra em `/app/insights`.
+
+**3. Avaliação pós-atendimento.** Ao concluir um agendamento, cria-se um token
+`RATE` e envia-se `GET/POST /api/v1/public/ratings/<token>/` (link
+`/avaliar/<token>`). A nota (1–5) e o comentário opcional são gravados **uma
+única vez**; o token é de uso único (replay → 410). Avaliar exige status
+`COMPLETED`.
+
+**4. Match por preferência.** O motor de disponibilidade aceita `customer`
+(opcional). Para "qualquer disponível", a ordem dos profissionais usa a **média
+de avaliações do cliente com cada profissional**; sem esse histórico, cai na
+**média geral do profissional**. Em reservas públicas anônimas não há cliente,
+então vale sempre a média geral. É uma **heurística simples** de ordenação — não
+promete o "melhor" profissional, apenas prioriza quem o cliente já avaliou bem.
+
+**5. Sugestões de recorrência.** Uma tarefa diária identifica clientes cujo
+intervalo médio entre visitas venceu e **não têm agendamento futuro**, e cria um
+`Appointment` com status `SUGGESTED` e `suggestion_expires_at`. O cliente recebe
+`/sugestao/<token>` para confirmar (vira `CONFIRMED`) ou recusar (vira
+`CANCELED`; ao recusar, dispara a prioridade da lista de espera). Sugestões
+pendentes **bloqueiam** o horário; as vencidas são canceladas por outra tarefa.
+
+**6. FlashSlot (vagas com desconto).** Uma tarefa gera vagas ociosas próximas
+como `FlashSlot`, com desconto em degraus (`10/20/30%`, sempre ≤
+`flash_slot_max_discount_percent` do salão, padrão 30%): quanto mais perto, maior
+o desconto. O preço com desconto aparece na disponibilidade pública e é
+**congelado no item** no momento da reserva (`discount_percent`, `flash_slot`).
+Preços são recalculados e vagas vencidas expiradas por tarefas periódicas.
+
+Todas as listagens novas são paginadas (`DefaultPagination`) e os seletores usam
+`select_related`/`prefetch_related` validados por `django_assert_num_queries`.
+
+### Split de assinatura no Mercado Pago (marketplace)
+
+O checkout de assinatura pode operar como **marketplace**: o salão (vendedor)
+recebe o valor do plano na **própria conta Mercado Pago** e a plataforma retém a
+comissão via `marketplace_fee`. O fluxo:
+
+- `GET /api/v1/billing/mercadopago/connect/` (OWNER) devolve a URL de
+  autorização OAuth; `DELETE` desconecta a conta.
+- `GET /api/v1/billing/mercadopago/callback/` troca o `code` pelos tokens do
+  vendedor e os guarda **por organização**. A identificação do salão é feita por
+  um `state` **assinado (HMAC) e de validade curta** (10 min) — nunca por um id
+  cru da URL. As credenciais **nunca** são expostas pela API.
+- No checkout, se o salão conectou a conta, o `preapproval` é criado com o token
+  do vendedor e recebe `marketplace_fee` = preço do plano ×
+  `platform_fee_percent` (por salão, padrão global em
+  `PLATFORM_FEE_DEFAULT_PERCENT`, exibido como somente-leitura). Sem conta
+  conectada, o checkout usa as credenciais da plataforma **sem split**, para não
+  travar quem ainda não fez OAuth.
+
+**Aviso honesto sobre o ambiente.** Hoje isso funciona apenas em **sandbox**,
+com contas de teste do Mercado Pago; a validação manual de webhooks exige túnel
+HTTPS, como descrito acima. **Produção exige KYC** (verificação de identidade do
+vendedor) e **aprovação prévia como marketplace** no Mercado Pago — sem isso o
+`marketplace_fee` não é aplicado de verdade. As credenciais
+(`MP_CLIENT_ID`, `MP_CLIENT_SECRET`, `MP_OAUTH_REDIRECT_URI`) vêm do ambiente, e
+o `redirect_uri` de autorização e de troca de token precisam ser idênticos,
+incluindo o `slug` do salão.
+
 ### Métricas, exportação e auditoria
 
 O dashboard autenticado oferece `GET /api/v1/metrics/overview/`,

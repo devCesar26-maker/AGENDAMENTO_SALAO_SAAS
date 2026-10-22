@@ -16,9 +16,16 @@ class PublicBookingTenantMiddleware:
     def __call__(self, request):
         is_booking_page = request.path == "/b" or request.path.startswith("/b/")
         is_public_api = request.path.startswith("/api/v1/public/")
-        # O link mágico identifica o tenant pelo token (dado único), não por
-        # host/cabeçalho — não pode passar pela resolução de tenant abaixo.
-        is_magic_link = request.path.startswith("/api/v1/public/appointments/tokens/")
+        # Links por token (magia, avaliação, sugestão e prioridade da espera)
+        # identificam o tenant pelo próprio token — não podem passar pela
+        # resolução por host/cabeçalho.
+        token_public_prefixes = (
+            "/api/v1/public/appointments/tokens/",
+            "/api/v1/public/ratings/",
+            "/api/v1/public/suggestions/",
+            "/api/v1/public/waitlist/offers/",
+        )
+        is_magic_link = request.path.startswith(token_public_prefixes)
         if not ((is_booking_page or is_public_api) and not is_magic_link):
             return self.get_response(request)
 

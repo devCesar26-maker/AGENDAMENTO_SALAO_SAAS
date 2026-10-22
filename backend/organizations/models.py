@@ -13,6 +13,10 @@ from django.utils.text import slugify
 from core.models import TenantModel, TenantScopedManager, TimeStampedModel
 
 
+def default_platform_fee_percent():
+    return getattr(settings, "PLATFORM_FEE_DEFAULT_PERCENT", 10)
+
+
 class Organization(TimeStampedModel):
     """Um salão/barbearia (tenant) na plataforma."""
 
@@ -45,6 +49,56 @@ class Organization(TimeStampedModel):
         help_text='Ex.: {"mon": [["09:00", "18:00"]], "sun": []}',
     )
     is_active = models.BooleanField("ativo", default=True)
+    waitlist_priority_window_minutes = models.PositiveSmallIntegerField(
+        "janela de prioridade da lista de espera (min)",
+        default=10,
+        help_text="Tempo exclusivo para o primeiro cliente da fila reservar a vaga liberada.",
+    )
+    flash_slot_max_discount_percent = models.PositiveSmallIntegerField(
+        "desconto máximo do FlashSlot (%)",
+        default=30,
+        help_text="Teto percentual aplicado aos degraus de desconto do FlashSlot.",
+    )
+    platform_fee_percent = models.PositiveSmallIntegerField(
+        "comissão da plataforma (%)",
+        default=default_platform_fee_percent,
+        help_text=(
+            "Percentual retido pela plataforma nas assinaturas cobradas via split "
+            "do Mercado Pago. O restante é repassado ao salão."
+        ),
+    )
+    mercadopago_seller_id = models.CharField(
+        "id do vendedor no Mercado Pago",
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="user_id da conta Mercado Pago conectada pelo salão (OAuth).",
+    )
+    mercadopago_access_token = models.CharField(
+        "access token do vendedor",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Token OAuth da conta do salão; nunca retornado pela API.",
+    )
+    mercadopago_refresh_token = models.CharField(
+        "refresh token do vendedor",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Refresh token OAuth da conta do salão; nunca retornado pela API.",
+    )
+    mercadopago_token_expires_at = models.DateTimeField(
+        "expiração do token do vendedor", null=True, blank=True
+    )
+    mercadopago_connected_at = models.DateTimeField(
+        "conta Mercado Pago conectada em", null=True, blank=True
+    )
+
+    @property
+    def has_mercadopago_seller(self) -> bool:
+        """True quando o salão já conectou a própria conta Mercado Pago (split ativo)."""
+        return bool(self.mercadopago_seller_id and self.mercadopago_access_token)
 
     class Meta:
         verbose_name = "salão"

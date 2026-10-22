@@ -19,6 +19,18 @@ const PublicBookingPage = lazy(() =>
 const MagicLinkPage = lazy(() =>
   import("./pages/MagicLinkPage").then(({ MagicLinkPage }) => ({ default: MagicLinkPage })),
 );
+const RatingPage = lazy(() =>
+  import("./pages/RatingPage").then(({ RatingPage }) => ({ default: RatingPage })),
+);
+const RecurringSuggestionPage = lazy(() =>
+  import("./pages/RecurringSuggestionPage").then(({ RecurringSuggestionPage }) => ({ default: RecurringSuggestionPage })),
+);
+const WaitlistPriorityPage = lazy(() =>
+  import("./pages/WaitlistPriorityPage").then(({ WaitlistPriorityPage }) => ({ default: WaitlistPriorityPage })),
+);
+const InsightsPage = lazy(() =>
+  import("./pages/InsightsPage").then(({ InsightsPage }) => ({ default: InsightsPage })),
+);
 const ServicesPage = lazy(() =>
   import("./pages/ServicesPage").then(({ ServicesPage }) => ({ default: ServicesPage })),
 );
@@ -101,6 +113,14 @@ export default function App() {
                 />
                 <Route path="metricas" element={<MetricsPage />} />
                 <Route
+                  path="insights"
+                  element={
+                    <ProtectedRoute roles={["OWNER", "MANAGER"]}>
+                      <InsightsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="notificacoes"
                   element={
                     <ProtectedRoute roles={["OWNER", "MANAGER"]}>
@@ -121,6 +141,9 @@ export default function App() {
               </Route>
               <Route path="/b/:slug" element={<PublicBookingPage />} />
               <Route path="/a/:token" element={<MagicLinkPage />} />
+              <Route path="/avaliar/:token" element={<RatingPage />} />
+              <Route path="/sugestao/:token" element={<RecurringSuggestionPage />} />
+              <Route path="/prioridade/:token" element={<WaitlistPriorityPage />} />
               <Route
                 path="/"
                 element={

@@ -1,0 +1,11 @@
+Olá, {{ customer.name }}!
+
+Com base no seu histórico, preparamos uma sugestão de horário em {{ organization.name }}:
+{% for item in items %}
+- {{ item.service }} com {{ item.professional }} em {{ item.start|date:"d/m/Y H:i" }}.
+{% endfor %}
+
+Você pode confirmar ou recusar por este link até {{ suggestion_expires_at|date:"d/m/Y H:i" }}:
+{{ suggestion_url }}
+
+A sugestão não é uma cobrança. Se não houver resposta, o horário será liberado automaticamente.

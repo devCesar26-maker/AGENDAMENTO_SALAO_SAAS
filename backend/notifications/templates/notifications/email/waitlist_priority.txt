@@ -1,0 +1,11 @@
+Olá, {{ customer.name }}!
+
+Um horário que você esperava foi liberado em {{ organization.name }}:
+
+- {{ service.name }} com {{ professional.name }}
+- {{ start|date:"d/m/Y às H:i" }}
+
+Este link é exclusivo e fica reservado para você até {{ expires_at|date:"d/m/Y H:i" }}:
+{{ priority_url }}
+
+Se o link expirar, o horário será oferecido ao próximo cliente da lista de espera.

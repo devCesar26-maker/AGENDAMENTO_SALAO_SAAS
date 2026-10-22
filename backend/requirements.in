@@ -5,7 +5,7 @@
 #   pip-compile -c backend/requirements-prod.txt -o backend/requirements.txt backend/requirements.in
 #
 Django==5.2.*
-djangorestframework==3.17.*
+djangorestframework==3.18.*
 djangorestframework-simplejwt==5.5.*
 drf-spectacular==0.28.*
 drf-spectacular-sidecar==2026.10.*
@@ -31,6 +31,6 @@ factory_boy==3.3.*
 freezegun==1.5.*
 django-debug-toolbar==5.*
 ruff==0.14.*
-black==26.3.1
+black==26.10.1
 bandit==1.8.*
 pip-audit==2.9.*

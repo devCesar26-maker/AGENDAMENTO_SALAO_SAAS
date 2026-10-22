@@ -275,13 +275,16 @@ def test_cancelamento_persiste_eventos_e_avisa_entradas_compativeis(organization
     compatible.refresh_from_db()
     wrong_service.refresh_from_db()
     wrong_professional.refresh_from_db()
+    # A prioridade é exclusiva: só a primeira entrada compatível (FIFO) é notificada.
     assert compatible.notified_at is not None
     assert wrong_service.notified_at is None
     assert wrong_professional.notified_at is None
+    offer = compatible.priority_offers.get()
+    assert offer.status == "ACTIVE"
+    assert offer.appointment_item.appointment_id == appointment.pk
     assert len(mail.outbox) == 2
     assert customer.email in mail.outbox[0].to
-    assert "Horário disponível" in mail.outbox[1].subject
-    assert "não fica reservado" in mail.outbox[1].body
+    assert "Reserva prioritária" in mail.outbox[1].subject
 
 
 @pytest.mark.django_db

@@ -69,3 +69,16 @@ class AuditLogSerializer(serializers.ModelSerializer):
         if obj.actor_id is None:
             return None
         return obj.actor.user.get_full_name() or obj.actor.user.email
+
+
+class InsightsQuerySerializer(serializers.Serializer):
+    inactive_days = serializers.IntegerField(min_value=1, max_value=365, default=60)
+    top_n = serializers.IntegerField(min_value=1, max_value=50, default=5)
+    low_occupancy_threshold = serializers.IntegerField(min_value=1, max_value=100, default=35)
+
+
+class InsightSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    severity = serializers.ChoiceField(choices=["info", "warning"])
+    message = serializers.CharField()
+    reference = serializers.DictField()

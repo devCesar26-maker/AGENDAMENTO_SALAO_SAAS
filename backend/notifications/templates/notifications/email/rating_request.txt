@@ -1,0 +1,10 @@
+Olá, {{ customer.name }}!
+
+Esperamos que seu atendimento em {{ organization.name }} tenha sido ótimo.
+Sua opinião ajuda o salão a melhorar e leva menos de um minuto:
+
+{{ rating_url }}
+
+O link fica disponível até {{ rating_expires_at|date:"d/m/Y" }}.
+
+Obrigado!

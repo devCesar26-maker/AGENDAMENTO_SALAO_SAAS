@@ -282,6 +282,30 @@ CELERY_BEAT_SCHEDULE = {
         "task": "notifications.tasks.dispatch_notification_outbox",
         "schedule": env_int("OUTBOX_CRON_SECONDS", 30),
     },
+    "ofertas-espera-expiradas": {
+        "task": "notifications.tasks.expire_waitlist_offers",
+        "schedule": env_int("WAITLIST_OFFER_CRON_SECONDS", 60),
+    },
+    "sugestoes-expiradas": {
+        "task": "notifications.tasks.expire_suggested_appointments",
+        "schedule": env_int("SUGGESTION_CRON_SECONDS", 300),
+    },
+    "sugestoes-recorrencia": {
+        "task": "scheduling.tasks.generate_recurring_suggestions_for_active_organizations",
+        "schedule": env_int("RECURRING_CRON_SECONDS", 86400),
+    },
+    "flash-slots": {
+        "task": "scheduling.tasks.generate_flash_slots_for_active_organizations",
+        "schedule": env_int("FLASH_SLOT_CRON_SECONDS", 21600),
+    },
+    "flash-slots-recalculo": {
+        "task": "scheduling.tasks.refresh_flash_slot_prices",
+        "schedule": env_int("FLASH_REFRESH_CRON_SECONDS", 3600),
+    },
+    "flash-slots-expiracao": {
+        "task": "scheduling.tasks.expire_flash_slots",
+        "schedule": env_int("FLASH_EXPIRE_CRON_SECONDS", 900),
+    },
 }
 
 # E-mail: settings.dev usa Mailhog por padrão; settings.test usa locmem.
@@ -295,6 +319,8 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Éclat Studio <nao-responda@ecal
 
 # Frontend URL (links em e-mails e página pública).
 FRONTEND_URL = env("FRONTEND_URL", "http://localhost:5173")
+RATING_TOKEN_DAYS = env_int("RATING_TOKEN_DAYS", 7)
+RECURRING_SUGGESTION_HOURS = env_int("RECURRING_SUGGESTION_HOURS", 48)
 
 # Rate limit do Redis (Django >= 5.1 cache-based throttling também suportado).
 CACHES = {
@@ -308,6 +334,17 @@ CACHES = {
 MP_ACCESS_TOKEN = env("MP_ACCESS_TOKEN", "")
 MP_PUBLIC_KEY = env("MP_PUBLIC_KEY", "")
 MP_WEBHOOK_SECRET = env("MP_WEBHOOK_SECRET", "")
+
+# Marketplace (split de assinatura): OAuth da conta Mercado Pago do salão.
+# A comissão da plataforma é um percentual por salão (Organization), com este
+# padrão global. Em sandbox o split exige contas de teste; em produção exige KYC
+# e aprovação de marketplace no Mercado Pago.
+MP_CLIENT_ID = env("MP_CLIENT_ID", "")
+MP_CLIENT_SECRET = env("MP_CLIENT_SECRET", "")
+MP_OAUTH_REDIRECT_URI = env("MP_OAUTH_REDIRECT_URI", "")
+MP_AUTHORIZATION_URL = env("MP_AUTHORIZATION_URL", "https://auth.mercadopago.com.br/authorization")
+MP_OAUTH_TOKEN_URL = env("MP_OAUTH_TOKEN_URL", "https://api.mercadopago.com/oauth/token")
+PLATFORM_FEE_DEFAULT_PERCENT = env_int("PLATFORM_FEE_DEFAULT_PERCENT", 10)
 
 # Sanitização de texto livre (XSS em observações etc.).
 SANITIZE_ALLOWLIST_TAGS = ("b", "i", "em", "strong", "br", "p")

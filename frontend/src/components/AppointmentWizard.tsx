@@ -43,9 +43,14 @@ export function AppointmentWizard({ mode, slug, initialDate, onConfirm, onWaitli
   } });
   const customersQuery = useQuery({ queryKey: ["customers"], enabled: mode === "dashboard", queryFn: async () => rows((await api.get<Row<Customer>>("/customers/")).data) });
   const serviceKey = serviceIds.join(",");
-  const slotsQuery = useQuery({ queryKey: [mode, "wizard-availability", slug, serviceKey, professional, date], enabled: serviceIds.length > 0 && !!date && (mode === "dashboard" || !!slug), queryFn: async () => {
+  // No dashboard, quando já há um cliente escolhido, enviamos o id para o motor
+  // ordenar "qualquer disponível" pelo histórico de preferência desse cliente.
+  const matchCustomer = mode === "dashboard" && !createDependent ? customerId : "";
+  const slotsQuery = useQuery({ queryKey: [mode, "wizard-availability", slug, serviceKey, professional, date, matchCustomer], enabled: serviceIds.length > 0 && !!date && (mode === "dashboard" || !!slug), queryFn: async () => {
     const path = mode === "public" ? "/public/availability/" : "/availability/";
-    return (await api.get<{ slots: Slot[] }>(path, { ...tenantConfig, params: { services: serviceKey, professional, date } })).data.slots;
+    const params: Record<string, string> = { services: serviceKey, professional, date };
+    if (matchCustomer) params.customer = matchCustomer;
+    return (await api.get<{ slots: Slot[] }>(path, { ...tenantConfig, params })).data.slots;
   } });
   const services = serviceQuery.data ?? [];
   const chosenServices = serviceIds.map(id => services.find(service => service.id === id)).filter((service): service is Service => !!service);

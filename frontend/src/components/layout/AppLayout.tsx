@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CreditCard,
   Home,
+  Lightbulb,
   Menu,
   Scissors,
   Search,
@@ -51,6 +52,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Equipe", to: "/app/equipe", icon: <UsersRound size={18} strokeWidth={1.75} />, roles: ["OWNER", "MANAGER"] },
       { label: "Métricas", to: "/app/metricas", icon: <BarChart3 size={18} strokeWidth={1.75} /> },
+      { label: "Insights", to: "/app/insights", icon: <Lightbulb size={18} strokeWidth={1.75} />, roles: ["OWNER", "MANAGER"] },
       { label: "Lista de espera", to: "/app/notificacoes", icon: <Bell size={18} strokeWidth={1.75} />, roles: ["OWNER", "MANAGER"] },
       { label: "Plano", to: "/app/plano", icon: <CreditCard size={18} strokeWidth={1.75} />, roles: ["OWNER", "MANAGER"] },
       { label: "Configurações", to: "/app/configuracoes", icon: <Settings size={18} strokeWidth={1.75} /> },

@@ -1,6 +1,6 @@
 # Runtime dependencies only. Keep dev/test tools in requirements.in.
 Django==5.2.*
-djangorestframework==3.17.*
+djangorestframework==3.18.*
 djangorestframework-simplejwt==5.5.*
 drf-spectacular==0.28.*
 drf-spectacular-sidecar==2026.10.*

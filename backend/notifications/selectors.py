@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from django.utils import timezone
 
-from notifications.models import WaitlistEntry
+from notifications.models import WaitlistEntry, WaitlistOffer
 from scheduling.models import Appointment, AppointmentItem
 
 
@@ -76,4 +76,22 @@ def list_waitlist_entries(organization):
         WaitlistEntry.objects.filter(organization=organization)
         .select_related("customer", "service", "professional")
         .order_by("created_at")
+    )
+
+
+def waitlist_offer_for_token(token):
+    return (
+        WaitlistOffer.objects.filter(token=token)
+        .select_related(
+            "organization",
+            "entry",
+            "entry__customer",
+            "entry__service",
+            "entry__professional",
+            "appointment_item",
+            "appointment_item__service",
+            "appointment_item__professional",
+            "appointment_item__appointment",
+        )
+        .first()
     )

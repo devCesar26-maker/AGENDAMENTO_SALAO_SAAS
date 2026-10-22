@@ -19,6 +19,8 @@ from analytics.models import AuditLog
 from analytics.serializers import (
     AppointmentExportQuerySerializer,
     AuditLogSerializer,
+    InsightSerializer,
+    InsightsQuerySerializer,
     OverviewSerializer,
     PeriodQuerySerializer,
     ProfessionalMetricSerializer,
@@ -113,6 +115,27 @@ class MetricsProfessionalsView(_MetricsBase):
             organization, start, end, professional_user_id=professional_id
         )
         return Response(ProfessionalMetricSerializer(rows, many=True).data)
+
+
+@extend_schema(tags=["analytics"], responses=InsightSerializer(many=True))
+class InsightsView(APIView):
+    """Sugestões acionáveis; agregações ficam em poucas queries fixas no selector."""
+
+    permission_classes = [IsTenantManagerOrOwner]
+
+    def get(self, request):
+        query = InsightsQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        organization, _ = resolve_membership(request)
+        rows = selectors.insights(
+            organization,
+            inactive_days=query.validated_data["inactive_days"],
+            top_n=query.validated_data["top_n"],
+            low_occupancy_threshold=query.validated_data["low_occupancy_threshold"],
+        )
+        paginator = DefaultPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        return paginator.get_paginated_response(InsightSerializer(page, many=True).data)
 
 
 class _ExportBase(APIView):

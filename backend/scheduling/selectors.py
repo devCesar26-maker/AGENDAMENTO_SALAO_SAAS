@@ -3,18 +3,55 @@
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db.models import Prefetch
+from django.db.models import Avg, Prefetch, Q
 from django.utils import timezone
 
 from catalog.models import ProfessionalService
-from scheduling.models import Appointment, AppointmentItem
+from scheduling.models import Appointment, AppointmentItem, Rating
+
+BUSY_STATUSES = [
+    Appointment.Status.SCHEDULED,
+    Appointment.Status.CONFIRMED,
+    Appointment.Status.SUGGESTED,
+]
+
+
+def professional_rating_scores(organization, customer=None):
+    """Média geral e, quando há cliente, média específica por profissional.
+
+    Uma avaliação de agendamento com vários itens do mesmo profissional pode
+    aparecer mais de uma vez no join. Isso é aceitável para a heurística de
+    ordenação: não altera a média do profissional e mantém tudo em uma query.
+    """
+    customers_filter = Q()
+    if customer is not None:
+        customers_filter = Q(appointment__customer_id=customer.pk)
+    rows = (
+        Rating.objects.filter(organization=organization)
+        .values("appointment__items__professional_id")
+        .annotate(
+            general=Avg("score"),
+            customer=Avg("score", filter=customers_filter),
+        )
+    )
+    general = {}
+    specific = {}
+    for row in rows:
+        professional_id = row["appointment__items__professional_id"]
+        if professional_id is None:
+            continue
+        general[professional_id] = float(row["general"] or 0)
+        if customer is not None and row["customer"] is not None:
+            specific[professional_id] = float(row["customer"])
+    return specific, general
 
 
 def load_availability_data(
     organization, services, date, window_start, window_end, *, exclude_appointment_id=None
 ):
-    """Carrega em lote vínculos, horários, folgas e ocupações para um cálculo."""
+    """Carrega em lote vínculos, horários, folgas, ocupações e ofertas ativas."""
     from catalog.models import TimeOff, WorkingHours
+    from notifications.models import WaitlistOffer
 
     service_ids = [service.pk for service in services]
     links = list(
@@ -44,15 +81,35 @@ def load_availability_data(
         professional_id__in=professional_ids,
         start_at__lt=window_end,
         end_at__gt=window_start - timedelta(days=2),
-        appointment__status__in=[
-            Appointment.Status.SCHEDULED,
-            Appointment.Status.CONFIRMED,
-        ],
+        appointment__status__in=BUSY_STATUSES,
     ).select_related("service", "appointment")
     if exclude_appointment_id is not None:
         busy_queryset = busy_queryset.exclude(appointment_id=exclude_appointment_id)
     busy_items = list(busy_queryset)
-    return links, hours, time_offs, busy_items
+    waitlist_holds = list(
+        WaitlistOffer.objects.filter(
+            organization=organization,
+            status=WaitlistOffer.Status.ACTIVE,
+            expires_at__gt=timezone.now(),
+            appointment_item__professional_id__in=professional_ids,
+            appointment_item__start_at__lt=window_end,
+            appointment_item__end_at__gt=window_start,
+        ).select_related("appointment_item")
+    )
+    from scheduling.models import FlashSlot
+
+    flash_slots = list(
+        FlashSlot.objects.filter(
+            organization=organization,
+            status=FlashSlot.Status.ACTIVE,
+            expires_at__gt=timezone.now(),
+            service_id__in=service_ids,
+            professional_id__in=professional_ids,
+            start_at__lt=window_end,
+            end_at__gt=window_start,
+        )
+    )
+    return links, hours, time_offs, busy_items, waitlist_holds, flash_slots
 
 
 def list_appointments(

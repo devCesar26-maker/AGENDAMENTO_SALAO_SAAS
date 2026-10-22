@@ -61,7 +61,7 @@ django-csp==4.0
     # via -r backend/requirements-prod.in
 django-filter==25.2
     # via -r backend/requirements-prod.in
-djangorestframework==3.17.2
+djangorestframework==3.18.2
     # via
     #   -r backend/requirements-prod.in
     #   djangorestframework-simplejwt

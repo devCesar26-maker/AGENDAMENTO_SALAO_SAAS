@@ -1,25 +1,32 @@
 """Endpoints autenticados e públicos da lista de espera."""
 
+from zoneinfo import ZoneInfo
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status
+from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.api.pagination import DefaultPagination
 from core.api.throttling import PublicBookingRateThrottle
+from core.idempotency import IdempotencyConflict, execute_idempotently
 from core.tenant import TenantSerializerContextMixin, resolve_membership
 from customers import services as customer_services
 from customers.models import Customer
-from notifications.models import WaitlistEntry
+from notifications.models import WaitlistEntry, WaitlistOffer
 from notifications.permissions import WaitlistManagerAccess
-from notifications.selectors import list_waitlist_entries
+from notifications.selectors import list_waitlist_entries, waitlist_offer_for_token
 from notifications.serializers import (
     PublicWaitlistEntrySerializer,
+    PublicWaitlistOfferBookSerializer,
     WaitlistEntrySerializer,
 )
+from scheduling import services as scheduling_services
+from scheduling.models import Appointment
 
 
 @extend_schema(tags=["waitlist"])
@@ -139,3 +146,126 @@ class PublicWaitlistEntryCreateView(generics.CreateAPIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class PriorityOfferUnavailable(APIException):
+    status_code = status.HTTP_410_GONE
+    default_detail = "Esta oferta prioritária expirou ou já foi utilizada."
+    default_code = "priority_offer_unavailable"
+
+
+class PublicWaitlistOfferView(generics.GenericAPIView):
+    """Link exclusivo do primeiro da fila; reserva somente o item ofertado."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [PublicBookingRateThrottle]
+    serializer_class = PublicWaitlistOfferBookSerializer
+
+    def _load(self, token):
+        offer = waitlist_offer_for_token(token)
+        if offer is None:
+            return None, Response(
+                {"detail": "Este link é inválido."}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not offer.is_active:
+            return None, Response(
+                {"detail": "Esta oferta expirou ou já foi utilizada."},
+                status=status.HTTP_410_GONE,
+            )
+        return offer, None
+
+    def _payload(self, offer):
+        tz = ZoneInfo(offer.organization.timezone)
+        item = offer.appointment_item
+        return {
+            "organization_name": offer.organization.name,
+            "customer_name": offer.entry.customer.name,
+            "service": item.service.name,
+            "professional": item.professional.name,
+            "start_at": timezone.localtime(item.start_at, tz).isoformat(),
+            "end_at": timezone.localtime(item.end_at, tz).isoformat(),
+            "price": item.price,
+            "expires_at": offer.expires_at.isoformat(),
+        }
+
+    @extend_schema(responses={200: dict, 404: dict, 410: dict})
+    def get(self, request, token):
+        offer, rejection = self._load(token)
+        if rejection is not None:
+            return rejection
+        return Response(self._payload(offer))
+
+    @extend_schema(
+        request=PublicWaitlistOfferBookSerializer,
+        responses={201: dict, 404: dict, 410: dict},
+    )
+    def post(self, request, token):
+        offer, rejection = self._load(token)
+        if rejection is not None:
+            return rejection
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        def book():
+            with transaction.atomic():
+                locked = (
+                    WaitlistOffer.objects.select_for_update()
+                    .select_related(
+                        "organization",
+                        "entry",
+                        "entry__customer",
+                        "appointment_item",
+                        "appointment_item__service",
+                        "appointment_item__professional",
+                    )
+                    .filter(pk=offer.pk)
+                    .first()
+                )
+                if locked is None or not locked.is_active:
+                    raise PriorityOfferUnavailable()
+                customer = locked.entry.customer
+                now = timezone.now()
+                customer.lgpd_consent = True
+                customer.lgpd_consent_at = now
+                customer.save(update_fields=["lgpd_consent", "lgpd_consent_at", "updated_at"])
+                item = locked.appointment_item
+                appointment = scheduling_services.create_appointment(
+                    organization=locked.organization,
+                    customer=customer,
+                    items=[
+                        {
+                            "service": item.service,
+                            "professional": item.professional,
+                            "order": 0,
+                        }
+                    ],
+                    desired_start=item.start_at,
+                    membership=None,
+                    origin=Appointment.Origin.PUBLIC_PAGE,
+                    waitlist_offer=locked,
+                )
+                first = appointment.items.order_by("order").first()
+                return {
+                    "id": appointment.pk,
+                    "status": appointment.status,
+                    "start_at": first.start_at.isoformat() if first else None,
+                }
+
+        idempotency_key = request.headers.get("Idempotency-Key")
+        try:
+            if idempotency_key:
+                if len(idempotency_key) > 255 or not idempotency_key.strip():
+                    raise serializers.ValidationError({"Idempotency-Key": "Chave inválida."})
+                result, _ = execute_idempotently(
+                    organization=offer.organization,
+                    context="public_waitlist_offer_book",
+                    key=idempotency_key,
+                    data={"offer": offer.pk, "consent": True},
+                    operation=book,
+                )
+            else:
+                result = book()
+        except IdempotencyConflict as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        return Response(result, status=status.HTTP_201_CREATED)
