@@ -1,11 +1,39 @@
 .env
 .env.*
 !.env.example
+
+# Python cache
 __pycache__/
 *.py[cod]
+*.pyo
+
+# Ferramentas de desenvolvimento (não vão para produção)
 .pytest_cache/
 .ruff_cache/
 .coverage*
 htmlcov/
+conftest.py
+**/tests/
+pyproject.toml
+
+# Ambientes virtuais — a principal causa da imagem gigante (D1)
+venv/
+.venv/
+
+# Git e metadados de VCS
+.git/
+.gitignore
+.github/
+
+# Artefatos gerados em runtime
 staticfiles/
 media/
+logs/
+*.log
+celerybeat-schedule
+*.sqlite3
+
+# Build artifacts
+*.egg-info/
+dist/
+build/

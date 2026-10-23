@@ -29,7 +29,15 @@ def get_monthly_usage(organization, *, now=None):
         "appointments": Appointment.objects.filter(
             organization=organization, created_at__gte=start, created_at__lt=end
         )
-        .exclude(status=Appointment.Status.CANCELED)
+        .exclude(
+            # CANCELED: agendamentos cancelados não contam.
+            # SUGGESTED: sugestões preditivas são criadas com check_limit=False e
+            # representam propostas não confirmadas — não devem consumir cota (Bônus 3.1).
+            status__in=[
+                Appointment.Status.CANCELED,
+                Appointment.Status.SUGGESTED,
+            ]
+        )
         .count(),
         "period_start": start,
         "period_end": end,

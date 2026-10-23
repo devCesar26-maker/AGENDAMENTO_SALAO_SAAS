@@ -55,6 +55,43 @@ def _create_priority_offer(entry, item):
     return offer
 
 
+def _item_slot_is_available(item):
+    """Confere no motor de disponibilidade se o horário liberado continua livre.
+
+    Uma sugestão expirada/recusada ou um cancelamento podem ocorrer depois de
+    outro cliente já ter reservado o mesmo horário (SUGGESTED não bloqueia a
+    agenda). Sem esta checagem, criaríamos um hold exclusivo para um slot que
+    ninguém consegue converter.
+    """
+    from scheduling import services as scheduling_services
+
+    tz = ZoneInfo(item.organization.timezone)
+    desired_date = timezone.localtime(item.start_at, tz).date()
+    slots = scheduling_services.calcular_slots_disponiveis(
+        item.organization,
+        [item.service],
+        [item.professional],
+        desired_date,
+        exclude_appointment_id=item.appointment_id,
+        apply_flash=False,
+    )
+    return any(slot["start_at"] == item.start_at for slot in slots)
+
+
+def _available_matching_item(entry, items, availability_cache):
+    """Primeiro item compatível com a entrada cujo horário ainda está livre."""
+    for item in items:
+        if item.service_id != entry.service_id:
+            continue
+        if entry.professional_id is not None and entry.professional_id != item.professional_id:
+            continue
+        if item.pk not in availability_cache:
+            availability_cache[item.pk] = _item_slot_is_available(item)
+        if availability_cache[item.pk]:
+            return item
+    return None
+
+
 def start_waitlist_priority_for_appointment(appointment):
     """Oferta o item compatível ao primeiro da fila (FIFO), com hold exclusivo."""
     if appointment.status != appointment.Status.CANCELED:
@@ -82,16 +119,9 @@ def start_waitlist_priority_for_appointment(appointment):
     for item in items:
         candidates.extend(_priority_candidates(item))
     candidates.sort(key=lambda entry: (entry.created_at, entry.pk))
+    availability_cache = {}
     for entry in candidates:
-        matching_item = next(
-            (
-                item
-                for item in items
-                if item.service_id == entry.service_id
-                and (entry.professional_id is None or entry.professional_id == item.professional_id)
-            ),
-            None,
-        )
+        matching_item = _available_matching_item(entry, items, availability_cache)
         if matching_item is not None:
             return _create_priority_offer(entry, matching_item)
     return None
@@ -104,6 +134,9 @@ def offer_next_waitlist_entry_for_item(item):
         status=WaitlistOffer.Status.ACTIVE,
         expires_at__gt=timezone.now(),
     ).exists():
+        return None
+    # O horário pode ter sido reservado enquanto o hold anterior existia.
+    if not _item_slot_is_available(item):
         return None
     entry = _priority_candidates(item).first()
     if entry is None:

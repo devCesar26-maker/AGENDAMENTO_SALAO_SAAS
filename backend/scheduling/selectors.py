@@ -12,7 +12,10 @@ from scheduling.models import Appointment, AppointmentItem, Rating
 BUSY_STATUSES = [
     Appointment.Status.SCHEDULED,
     Appointment.Status.CONFIRMED,
-    Appointment.Status.SUGGESTED,
+    # SUGGESTED foi intencionalmente removido: uma sugestão pendente não deve
+    # bloquear o slot para outros clientes antes de ser confirmada.
+    # A proteção contra double-booking é feita em revalidate_slot_for_confirm()
+    # no momento da confirmação pública.
 ]
 
 

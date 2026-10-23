@@ -16,6 +16,7 @@ interface MagicPayload {
   organization_name: string;
   customer_name: string;
   can_cancel: boolean;
+  cancel_token?: string;
   expires_at: string;
   items: MagicItem[];
 }
@@ -71,7 +72,10 @@ export function MagicLinkPage() {
   const cancelMutation = useMutation({
     mutationFn: async () => {
       try {
-        const { data } = await api.post<MagicPayload>(CANCEL_ENDPOINT(token));
+        // O backend entrega um token CANCEL específico no GET. Se o e-mail for
+        // antigo (sem esse campo), o token VIEW da URL continua funcionando.
+        const target = appointmentQuery.data?.cancel_token ?? token;
+        const { data } = await api.post<MagicPayload>(CANCEL_ENDPOINT(target));
         return data;
       } catch (error) {
         throw new Error(friendlyDetail(error));

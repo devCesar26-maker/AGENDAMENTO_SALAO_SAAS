@@ -2,6 +2,7 @@
 
 import logging
 from datetime import timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
@@ -233,10 +234,16 @@ def generate_flash_slots(organization_id, days_ahead=FLASH_DAYS_AHEAD):
                 )
                 if not slots:
                     continue
+                item = slots[0]["items"][0]
+                # B3: nunca criar FlashSlot para serviço gratuito (preço = 0).
+                # Um desconto sobre zero resulta em discount_price = 0, o que
+                # é inválido como oferta promocional.
+                effective_price = item.get("price") or Decimal("0")
+                if effective_price <= Decimal("0"):
+                    continue
                 discount = _discount_for(day, today, ladder)
                 if discount < FLASH_MINIMUM_DISCOUNT:
                     continue
-                item = slots[0]["items"][0]
                 expires_at = min(
                     timezone.now() + timedelta(hours=FLASH_EXPIRES_HOURS),
                     item["start_at"],
@@ -320,7 +327,7 @@ def refresh_flash_slot_prices(batch_size=200):
         today = timezone.localdate(timezone=tz)
         cap = max(0, min(90, slot.organization.flash_slot_max_discount_percent or 0))
         ladder = [value for value in FLASH_DISCOUNT_LADDER if value <= cap]
-        if not ladder:
+        if not ladder or slot.original_price <= Decimal("0"):
             slot.status = FlashSlot.Status.EXPIRED
             slot.save(update_fields=["status", "updated_at"])
             continue

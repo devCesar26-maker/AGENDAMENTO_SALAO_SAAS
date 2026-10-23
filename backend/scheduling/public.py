@@ -378,13 +378,15 @@ def _magic_appointment_payload(appointment_token: AppointmentToken) -> dict:
     """Somente dados que o próprio cliente já conhece; nada é filtrado por request."""
     appointment = appointment_token.appointment
     tz = ZoneInfo(appointment.organization.timezone)
-    return {
+    can_cancel = appointment.status in (
+        Appointment.Status.SCHEDULED,
+        Appointment.Status.CONFIRMED,
+    )
+    payload = {
         "status": appointment.status,
         "organization_name": appointment.organization.name,
         "customer_name": appointment.customer.name,
-        "can_cancel": (
-            appointment.status in (Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED)
-        ),
+        "can_cancel": can_cancel,
         "expires_at": appointment_token.expires_at.isoformat(),
         "items": [
             {
@@ -398,6 +400,14 @@ def _magic_appointment_payload(appointment_token: AppointmentToken) -> dict:
             )
         ],
     }
+    # Entrega o token de cancelamento específico para o frontend. O token VIEW
+    # continua aceito no POST como fallback para e-mails já enviados.
+    if can_cancel and appointment_token.action == AppointmentToken.Action.VIEW:
+        cancel_token = services.ensure_appointment_token(
+            appointment, AppointmentToken.Action.CANCEL
+        )
+        payload["cancel_token"] = cancel_token.token
+    return payload
 
 
 class PublicAppointmentMagicLinkView(PublicAPIView):
@@ -405,7 +415,13 @@ class PublicAppointmentMagicLinkView(PublicAPIView):
 
     @extend_schema(responses={200: dict, 404: dict, 410: dict})
     def get(self, request, token: str):
-        appointment_token, rejection = _load_appointment_token_or_reject(token)
+        # GET também é escopado por ação: tokens de avaliação/confirmação não
+        # servem para ler os detalhes do agendamento. VIEW é o token do e-mail;
+        # CANCEL é aceito para links de cancelamento diretos.
+        appointment_token, rejection = _load_action_token(
+            token,
+            (AppointmentToken.Action.VIEW, AppointmentToken.Action.CANCEL),
+        )
         if rejection is not None:
             return rejection
         # O tenant vem do token (dado único de 32 bytes), nunca do request;
@@ -418,7 +434,12 @@ class PublicAppointmentMagicLinkCancelView(PublicAPIView):
 
     @extend_schema(responses={200: dict, 404: dict, 409: dict, 410: dict})
     def post(self, request, token: str):
-        appointment_token, rejection = _load_appointment_token_or_reject(token)
+        # Só o token do próprio link mágico (VIEW) ou um token CANCEL explícito
+        # podem cancelar. Tokens de outras ações (RATE/CONFIRM) são rejeitados (S1/B2).
+        appointment_token, rejection = _load_action_token(
+            token,
+            (AppointmentToken.Action.VIEW, AppointmentToken.Action.CANCEL),
+        )
         if rejection is not None:
             return rejection
         appointment = appointment_token.appointment
@@ -443,11 +464,12 @@ class PublicAppointmentMagicLinkCancelView(PublicAPIView):
         return Response(_magic_appointment_payload(locked))
 
 
-def _load_action_token(token_value: str, action: str):
+def _load_action_token(token_value: str, action: str | tuple[str, ...]):
     token, rejection = _load_appointment_token_or_reject(token_value)
     if rejection is not None:
         return None, rejection
-    if token.action != action:
+    allowed = (action,) if isinstance(action, str) else action
+    if token.action not in allowed:
         return None, Response({"detail": "Este link é inválido."}, status=status.HTTP_404_NOT_FOUND)
     return token, None
 
@@ -606,6 +628,15 @@ class PublicRecurringSuggestionView(PublicAPIView):
                     status=status.HTTP_409_CONFLICT,
                 )
             if decision == "confirm":
+                # Revalida disponibilidade real antes de confirmar.
+                # Necessário porque SUGGESTED não bloqueia mais a agenda (B1):
+                # outro cliente pode ter reservado o mesmo horário no intervalo.
+                from scheduling.services import SlotUnavailable, revalidate_slot_for_confirm
+
+                try:
+                    revalidate_slot_for_confirm(appointment)
+                except SlotUnavailable as exc:
+                    return Response({"detail": str(exc.detail)}, status=status.HTTP_409_CONFLICT)
                 appointment = services.change_appointment_status(
                     appointment, Appointment.Status.CONFIRMED
                 )

@@ -122,7 +122,8 @@ def test_nao_gera_sugestao_se_tem_agendamento_futuro(organization):
 
 
 @pytest.mark.django_db
-def test_sugestao_bloqueia_o_slot_enquanto_pendente(organization):
+def test_sugestao_nao_bloqueia_o_slot_enquanto_pendente(organization):
+    """B1: horario sugerido deve continuar disponivel para outros clientes."""
     service, professional, customer = make_schedule(organization)
     complete_visit(organization, service, professional, customer, days_ago=42)
     complete_visit(organization, service, professional, customer, days_ago=14)
@@ -133,7 +134,47 @@ def test_sugestao_bloqueia_o_slot_enquanto_pendente(organization):
     day = timezone.localtime(item.start_at, tz).date()
 
     slots = services.calcular_slots_disponiveis(organization, [service], [professional], day)
-    assert all(slot["start_at"] != item.start_at for slot in slots)
+    # O slot sugerido DEVE aparecer disponivel para outros clientes.
+    assert any(
+        slot["start_at"] == item.start_at for slot in slots
+    ), "Slot sugerido nao deve bloquear a agenda antes da confirmacao."
+
+
+@pytest.mark.django_db
+def test_confirmar_sugestao_retorna_409_se_slot_ocupado(api_client, organization):
+    """B1: confirmacao com double-booking deve retornar 409 via revalidacao."""
+    service, professional, customer = make_schedule(organization)
+    complete_visit(organization, service, professional, customer, days_ago=42)
+    complete_visit(organization, service, professional, customer, days_ago=14)
+    generate_recurring_suggestions.run(organization.pk)
+    suggestion = Appointment.objects.get(status=Appointment.Status.SUGGESTED)
+    item = suggestion.items.get()
+    token = services.ensure_appointment_token(
+        suggestion, AppointmentToken.Action.CONFIRM, expires_at=suggestion.suggestion_expires_at
+    )
+
+    # Outro cliente reserva o mesmo slot antes da confirmacao.
+    other_customer = CustomerFactory(organization=organization, email="outro@example.com")
+    other_appt = Appointment.objects.create(
+        organization=organization, customer=other_customer, status=Appointment.Status.SCHEDULED
+    )
+    other_appt.items.create(
+        organization=organization,
+        service=service,
+        professional=professional,
+        order=0,
+        start_at=item.start_at,
+        end_at=item.end_at,
+        price=service.price,
+    )
+
+    response = api_client.post(
+        reverse("public-suggestion-decision", args=[token.token, "confirm"]),
+        format="json",
+    )
+    assert response.status_code == 409, response.json()
+    suggestion.refresh_from_db()
+    assert suggestion.status == Appointment.Status.SUGGESTED
 
 
 @pytest.mark.django_db

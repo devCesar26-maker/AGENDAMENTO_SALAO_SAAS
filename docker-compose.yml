@@ -1,6 +1,13 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
+    logging: *default-logging
     environment:
       POSTGRES_USER: ecalt
       POSTGRES_PASSWORD: ecalt
@@ -17,6 +24,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    logging: *default-logging
     ports:
       - "127.0.0.1:6379:6379" # também só desenvolvimento local
     healthcheck:
@@ -27,6 +35,7 @@ services:
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
+    logging: *default-logging
     ports:
       - "127.0.0.1:8025:8025" # UI em http://localhost:8025
 
@@ -34,6 +43,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    logging: *default-logging
     command: python manage.py migrate --noinput
     env_file: ./backend/.env
     environment:
@@ -49,6 +59,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    logging: *default-logging
     command: python manage.py runserver 0.0.0.0:8000
     env_file: ./backend/.env
     environment:
@@ -73,6 +84,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    logging: *default-logging
     command: celery -A config worker -l info
     env_file: ./backend/.env
     environment:
@@ -95,6 +107,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    logging: *default-logging
     command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
     env_file: ./backend/.env
     environment:
@@ -116,7 +129,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    command: npm run dev -- --host 0.0.0.0
+    logging: *default-logging
+    command: sh -c "test -x node_modules/.bin/vite || npm ci; exec npm run dev -- --host 0.0.0.0"
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
     volumes:

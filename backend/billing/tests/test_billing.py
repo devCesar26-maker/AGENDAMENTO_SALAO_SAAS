@@ -241,3 +241,38 @@ def test_webhook_signature_accepts_official_manifest():
         request_id="request-abc",
         secret="secret",
     )
+
+
+# ---------------------------------------------------------------------------
+# Bonus 3.1 - SUGGESTED deve ser excluido do monthly_usage
+# ---------------------------------------------------------------------------
+
+
+def test_monthly_usage_exclui_sugestoes_e_cancelados(organization):
+    """Bonus 3.1: agendamentos SUGGESTED e CANCELED nao consomem cota mensal."""
+    from billing.selectors import get_monthly_usage
+
+    customer = CustomerFactory(organization=organization)
+
+    Appointment.objects.create(
+        organization=organization, customer=customer, status=Appointment.Status.SCHEDULED
+    )
+    Appointment.objects.create(
+        organization=organization, customer=customer, status=Appointment.Status.CONFIRMED
+    )
+    Appointment.objects.create(
+        organization=organization, customer=customer, status=Appointment.Status.COMPLETED
+    )
+    # Estes NAO devem contar:
+    Appointment.objects.create(
+        organization=organization, customer=customer, status=Appointment.Status.CANCELED
+    )
+    Appointment.objects.create(
+        organization=organization, customer=customer, status=Appointment.Status.SUGGESTED
+    )
+
+    usage = get_monthly_usage(organization)
+    assert usage["appointments"] == 3, (
+        f"Esperado 3 agendamentos ativos, obtido {usage['appointments']}. "
+        "SUGGESTED e CANCELED nao devem contar."
+    )

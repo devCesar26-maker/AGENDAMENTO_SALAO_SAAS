@@ -191,4 +191,11 @@ class FlashSlot(TenantModel):
         if self.original_price is not None and self.discount_percent is not None:
             multiplier = Decimal(100 - self.discount_percent) / Decimal(100)
             self.discount_price = (self.original_price * multiplier).quantize(Decimal("0.01"))
+        # B3: preço final nunca pode ser zero ou negativo (um FlashSlot gratuito
+        # não faz sentido como oferta promocional).
+        if self.discount_price is not None and self.discount_price <= Decimal("0"):
+            raise ValueError(
+                "discount_price não pode ser zero ou negativo. "
+                "Verifique original_price e discount_percent do FlashSlot."
+            )
         super().save(*args, **kwargs)

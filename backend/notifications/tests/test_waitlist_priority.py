@@ -104,6 +104,46 @@ def test_cancelamento_oferta_primeira_entrada_fifo(organization):
 
 
 @pytest.mark.django_db
+def test_cancelamento_nao_oferta_slot_ja_ocupado(organization):
+    """Se outro cliente já reservou o horário, não cria hold inutilizável."""
+    desired_date, service, professional, customer, start_at = make_schedule(organization)
+    appointment = create_raw_appointment(organization, service, professional, customer, start_at)
+    entry = add_entry(organization, service, desired_date, email="espera@example.com")
+    blocker = CustomerFactory(organization=organization)
+    create_raw_appointment(organization, service, professional, blocker, start_at)
+
+    services.change_appointment_status(appointment, Appointment.Status.CANCELED)
+
+    entry.refresh_from_db()
+    assert entry.notified_at is None
+    assert not WaitlistOffer.objects.exists()
+
+
+@pytest.mark.django_db
+def test_proxima_oferta_nao_cria_hold_para_slot_ocupado(organization):
+    """Após expirar um hold, o próximo da fila só é chamado se o slot seguir livre."""
+    desired_date, service, professional, customer, start_at = make_schedule(organization)
+    appointment = create_raw_appointment(organization, service, professional, customer, start_at)
+    first = add_entry(organization, service, desired_date, email="primeiro@example.com")
+    second = add_entry(organization, service, desired_date, email="segundo@example.com")
+    services.change_appointment_status(appointment, Appointment.Status.CANCELED)
+    offer = WaitlistOffer.objects.get(entry=first)
+    WaitlistOffer.objects.filter(pk=offer.pk).update(
+        status=WaitlistOffer.Status.EXPIRED,
+        expires_at=timezone.now() - timedelta(minutes=1),
+    )
+    blocker = CustomerFactory(organization=organization)
+    create_raw_appointment(organization, service, professional, blocker, start_at)
+
+    next_offer = offer_next_waitlist_entry_for_item(offer.appointment_item)
+
+    assert next_offer is None
+    second.refresh_from_db()
+    assert second.notified_at is None
+    assert WaitlistOffer.objects.filter(status=WaitlistOffer.Status.ACTIVE).count() == 0
+
+
+@pytest.mark.django_db
 def test_hold_exclusivo_bloqueia_slot_no_motor(organization):
     desired_date, service, professional, customer, start_at = make_schedule(organization)
     appointment = create_raw_appointment(organization, service, professional, customer, start_at)

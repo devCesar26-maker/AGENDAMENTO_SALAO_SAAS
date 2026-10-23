@@ -16,6 +16,7 @@ const payload = {
   organization_name: "Studio Índigo",
   customer_name: "Carla Souza",
   can_cancel: true,
+  cancel_token: "cancel-xyz",
   expires_at: "2026-10-21T09:00:00-03:00",
   items: [
     {
@@ -26,6 +27,8 @@ const payload = {
     },
   ],
 };
+
+const legacyPayload = { ...payload, cancel_token: undefined };
 
 const canceled = { ...payload, status: "CANCELED", can_cancel: false };
 
@@ -74,12 +77,27 @@ describe("MagicLinkPage", () => {
     await user.click(await screen.findByRole("button", { name: "Sim, cancelar" }));
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith("/public/appointments/tokens/tok-123/cancel/")
+      expect(api.post).toHaveBeenCalledWith(
+        "/public/appointments/tokens/cancel-xyz/cancel/"
+      )
     );
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Cancelado"));
     expect(
       screen.queryByRole("button", { name: "Cancelar agendamento" })
     ).not.toBeInTheDocument();
+  });
+
+  it("usa o token VIEW da URL quando o e-mail antigo não traz cancel_token", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockResolvedValue({ data: legacyPayload } as never);
+    renderAtToken();
+
+    await user.click(await screen.findByRole("button", { name: "Cancelar agendamento" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, cancelar" }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith("/public/appointments/tokens/tok-123/cancel/")
+    );
   });
 
   it("token inválido mostra mensagem clara, sem jargão", async () => {

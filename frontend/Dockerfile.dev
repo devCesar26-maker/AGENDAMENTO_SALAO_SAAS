@@ -2,8 +2,10 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# As dependências ficam no volume nomeado `frontend_node_modules` (ver
+# docker-compose.yml). Instalar aqui dentro duplicaria ~418 MB na imagem;
+# o entrypoint instala apenas quando o volume estiver vazio.
 COPY package*.json ./
-RUN npm ci
 
 COPY . .
 

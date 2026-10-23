@@ -85,6 +85,38 @@ def test_teto_zero_nao_cria_desconto(organization):
 
 
 @pytest.mark.django_db
+def test_flash_slot_preco_zero_nao_criado(organization):
+    """B3: servico com preco zero nao deve gerar FlashSlot (evita discount_price=0)."""
+    service, _, _ = make_schedule(organization, max_discount=30)
+    # Zera o preco do servico.
+    service.price = Decimal("0.00")
+    service.save(update_fields=["price"])
+
+    # Geracao automatica deve ignorar o servico com preco zero.
+    created = generate_flash_slots.run(organization.pk)
+    assert created == 0
+    assert not FlashSlot.objects.exists()
+
+
+@pytest.mark.django_db
+def test_flash_slot_save_rejeita_preco_zero(organization):
+    """B3: rede de seguranca — FlashSlot.save() levanta ValueError se discount_price ficar zero."""
+    service, professional, _ = make_schedule(organization, max_discount=30)
+
+    with pytest.raises(ValueError, match="discount_price"):
+        FlashSlot(
+            organization=organization,
+            service=service,
+            professional=professional,
+            start_at=timezone.now() + timedelta(hours=2),
+            end_at=timezone.now() + timedelta(hours=3),
+            original_price=Decimal("0.00"),
+            discount_percent=10,
+            expires_at=timezone.now() + timedelta(hours=1),
+        ).save()
+
+
+@pytest.mark.django_db
 def test_geracao_e_idempotente_no_mesmo_slot(organization):
     make_schedule(organization)
     generate_flash_slots.run(organization.pk)

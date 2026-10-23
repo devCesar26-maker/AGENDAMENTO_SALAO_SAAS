@@ -443,13 +443,25 @@ def create_appointment(
 
 
 def ensure_magic_link_token(appointment: Appointment) -> AppointmentToken:
-    """Um token VIEW por agendamento para o link mágico; criado na transação da criação."""
+    """Token VIEW e CANCEL por agendamento para o link mágico; criado na transação da criação.
+
+    O token VIEW é usado no GET (leitura dos detalhes) e também autoriza o
+    cancelamento, pois é a credencial já enviada no e-mail. O token CANCEL é
+    criado para fluxos que queiram separar a credencial de cancelamento.
+    Tokens de outras ações (RATE/CONFIRM) nunca podem cancelar (S1/B2).
+    """
     token = appointment.tokens.filter(action=AppointmentToken.Action.VIEW).first()
     if token is None:
         token = AppointmentToken.objects.create(
             organization=appointment.organization,
             appointment=appointment,
             action=AppointmentToken.Action.VIEW,
+        )
+    if not appointment.tokens.filter(action=AppointmentToken.Action.CANCEL).exists():
+        AppointmentToken.objects.create(
+            organization=appointment.organization,
+            appointment=appointment,
+            action=AppointmentToken.Action.CANCEL,
         )
     return token
 
@@ -506,22 +518,92 @@ def tokens_for_appointments(appointment_ids, organization) -> dict:
 
 
 @transaction.atomic
+def revalidate_slot_for_confirm(appointment: Appointment) -> None:
+    """Verifica disponibilidade real antes de confirmar uma sugestão pública.
+
+    Deve ser chamada **dentro** de uma transação atômica existente que já
+    bloqueou o ``Appointment`` da sugestão. Lança SlotUnavailable se o slot
+    que a sugestão ocupa estiver reservado por outro cliente.
+
+    Contexto: SUGGESTED foi removido de BUSY_STATUSES para não bloquear a
+    agenda. Portanto, outro cliente pode ter reservado o mesmo horário antes
+    da confirmação. O lock nas linhas de ``Professional`` serializa esta
+    confirmação com ``create_appointment`` (que usa o mesmo lock), evitando
+    que duas confirmações concorrentes passem pela checagem ao mesmo tempo.
+    """
+    # Mesma ordem de lock de create_appointment: profissionais primeiro,
+    # depois itens. Evita deadlock com reservas concorrentes.
+    professional_ids = sorted(set(appointment.items.values_list("professional_id", flat=True)))
+    if not professional_ids:
+        raise SlotUnavailable()
+    list(
+        Professional.objects.select_for_update()
+        .filter(organization=appointment.organization, pk__in=professional_ids)
+        .order_by("pk")
+    )
+
+    items = list(appointment.items.select_related("service", "professional").order_by("order"))
+    if not items:
+        raise SlotUnavailable()
+    desired_start = items[0].start_at
+
+    # Bloqueia também itens já existentes no intervalo (belt-and-suspenders).
+    end_hint = desired_start + timedelta(days=1)
+    list(
+        AppointmentItem.objects.select_for_update()
+        .filter(
+            organization=appointment.organization,
+            professional_id__in=professional_ids,
+            start_at__lt=end_hint,
+            end_at__gte=desired_start - timedelta(hours=4),
+            appointment__status__in=[
+                Appointment.Status.SCHEDULED,
+                Appointment.Status.CONFIRMED,
+            ],
+        )
+        .exclude(appointment_id=appointment.pk)
+        .order_by("pk")
+    )
+
+    tz = ZoneInfo(appointment.organization.timezone)
+    local_date = desired_start.astimezone(tz).date()
+    slots = calcular_slots_disponiveis(
+        appointment.organization,
+        [item.service for item in items],
+        [item.professional for item in items],
+        local_date,
+        exclude_appointment_id=appointment.pk,
+    )
+    selected = next((slot for slot in slots if slot["start_at"] == desired_start), None)
+    if selected is None:
+        raise SlotUnavailable(
+            "Este horário foi reservado por outro cliente enquanto você revisava a sugestão."
+            " Por favor, acesse a página de reserva para escolher um novo horário."
+        )
+
+    # A verificação acima aceita qualquer combinação serviço/profissional que
+    # caiba no horário. A sugestão, porém, tem uma combinação específica: é
+    # preciso garantir que exatamente os mesmos itens continuam livres.
+    expected = [(item.service_id, item.professional_id, item.start_at) for item in items]
+    actual = [
+        (snapshot["service"].pk, snapshot["professional"].pk, snapshot["start_at"])
+        for snapshot in selected["items"]
+    ]
+    if actual != expected:
+        raise SlotUnavailable(
+            "Este horário foi reservado por outro cliente enquanto você revisava a sugestão."
+            " Por favor, acesse a página de reserva para escolher um novo horário."
+        )
+
+
+@transaction.atomic
 def reschedule_appointment(*, organization, appointment, desired_start):
     """Trava o agendamento/profissionais e reaplica a disponibilidade no novo início."""
     if timezone.is_naive(desired_start):
         raise ValidationError({"start_at": "Informe um horário com fuso horário."})
     desired_start = desired_start.astimezone(UTC)
-    current_appointment = Appointment.objects.get(organization=organization, pk=appointment.pk)
-    current_professional_ids = list(
-        current_appointment.items.order_by("professional_id")
-        .values_list("professional_id", flat=True)
-        .distinct()
-    )
-    list(
-        Professional.objects.select_for_update()
-        .filter(organization=organization, pk__in=current_professional_ids)
-        .order_by("pk")
-    )
+    # Ordem de lock consistente com a confirmação de sugestão (Appointment →
+    # Professional → AppointmentItem) para evitar deadlock entre os dois fluxos.
     locked_appointment = Appointment.objects.select_for_update().get(
         organization=organization, pk=appointment.pk
     )
@@ -530,6 +612,16 @@ def reschedule_appointment(*, organization, appointment, desired_start):
         Appointment.Status.CONFIRMED,
     }:
         raise ValidationError("Somente agendamentos ativos podem ser remarcados.")
+    current_professional_ids = list(
+        locked_appointment.items.order_by("professional_id")
+        .values_list("professional_id", flat=True)
+        .distinct()
+    )
+    list(
+        Professional.objects.select_for_update()
+        .filter(organization=organization, pk__in=current_professional_ids)
+        .order_by("pk")
+    )
     items = list(
         locked_appointment.items.select_for_update()
         .select_related("service", "professional")
