@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
+import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -21,6 +22,28 @@ const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth(
 const appointmentStart = (appointment: Appointment) => appointment.items[0]?.start_at ?? "";
 const statusLabel: Record<string, string> = { SCHEDULED: "Agendado", CONFIRMED: "Confirmado", COMPLETED: "Concluído", CANCELED: "Cancelado", NO_SHOW: "Não compareceu" };
 
+function AgendaEventContent(arg: EventContentArg) {
+  const appointment = arg.event.extendedProps.appointment as Appointment | undefined;
+  if (!appointment) return <>{arg.timeText}</>;
+  const isMonth = arg.view.type === "dayGridMonth";
+  const start = arg.event.start;
+  const end = arg.event.end;
+  const duration = start && end ? (end.getTime() - start.getTime()) / 60_000 : 30;
+  const compact = !isMonth && duration < 35;
+  const services = appointment.items.map(item => item.service_name).join(" · ");
+  const professionals = Array.from(new Set(appointment.items.map(item => item.professional_name))).join(" · ");
+  return (
+    <div className={`agenda-event-content${compact ? " is-compact" : ""}${isMonth ? " is-month" : ""}`}>
+      {!isMonth && <span className="agenda-event-time">{arg.timeText}</span>}
+      <span className="agenda-event-copy">
+        <strong>{appointment.customer_name}</strong>
+        {!compact && <small>{services}</small>}
+        {!compact && professionals && <span className="agenda-event-pro">{professionals}</span>}
+      </span>
+    </div>
+  );
+}
+
 export function AgendaPage() {
   const qc = useQueryClient();
   const today = localDate(new Date());
@@ -40,14 +63,6 @@ export function AgendaPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [active, setActive] = useState<Appointment | null>(null);
   const [formError, setFormError] = useState("");
-  useEffect(() => {
-    if (!active) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setActive(null);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [active]);
   const appointmentQuery = useQuery({
     queryKey: ["appointments", range.from, range.to],
     queryFn: async () => asRows((await api.get<Row<Appointment>>("/appointments/", { params: { date_from: range.from, date_to: range.to, page_size: 100 } })).data),
@@ -67,6 +82,7 @@ export function AgendaPage() {
     start: appointment.items[0].start_at,
     end: appointment.items[appointment.items.length - 1].end_at,
     editable: !["CANCELED", "COMPLETED", "NO_SHOW"].includes(appointment.status),
+    classNames: ["agenda-event", `agenda-event--${appointment.status.toLowerCase()}`],
     extendedProps: { appointment },
   })), [appointments]);
   const sortedAppointments = [...appointments].filter(appointment => appointment.items.length).sort((a, b) => appointmentStart(a).localeCompare(appointmentStart(b)));
@@ -117,8 +133,10 @@ export function AgendaPage() {
               selectable
               select={openCreate}
               editable
+              eventDisplay="block"
               eventDrop={onDrop}
               eventClick={onClick}
+              eventContent={AgendaEventContent}
               events={events}
               datesSet={arg => setCalendarRange(arg.startStr, arg.endStr)}
               height="auto"
@@ -127,6 +145,7 @@ export function AgendaPage() {
               slotMaxTime="22:00:00"
               allDaySlot={false}
               expandRows
+              slotEventOverlap={false}
               eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
             />
           )}
@@ -168,25 +187,33 @@ export function AgendaPage() {
       <AppointmentWizard key={selectedDate} mode="dashboard" initialDate={selectedDate} isSubmitting={create.isPending} onConfirm={data => create.mutate(data)} />
       {create.isPending && <p role="status" className="helper-copy">Criando agendamento…</p>}
     </Modal>
-    {active && (() => {
-      const status = active.status.toLowerCase();
-      const isTerminal = status === "completed" || status === "canceled" || status === "no_show";
-      return (
-        <div className="agenda-drawer-backdrop" onClick={() => setActive(null)}>
-          <aside className="agenda-drawer" role="dialog" aria-modal="true" aria-label={`Detalhes do agendamento #${active.id}`} onClick={event => event.stopPropagation()}>
-            <div className="agenda-drawer-heading">
+    <Modal
+      isOpen={active !== null}
+      onClose={() => setActive(null)}
+      size="xl"
+      className="agenda-detail-modal"
+      ariaLabel={active ? `Detalhes do agendamento #${active.id}` : "Detalhes do agendamento"}
+    >
+      {active && (() => {
+        const status = active.status.toLowerCase();
+        const isTerminal = status === "completed" || status === "canceled" || status === "no_show";
+        const isWorking = statusMutation.isPending || cancel.isPending;
+        const lastItem = active.items[active.items.length - 1];
+        return (
+          <div className="agenda-detail">
+            <div className="agenda-detail-heading">
               <div>
                 <p className="eyebrow">AGENDAMENTO #{active.id}</p>
                 <h2>{active.customer_name}</h2>
-                <i className={`agenda-status ${status}`}>{statusLabel[active.status] ?? active.status}</i>
+                <i className={`agenda-status agenda-status-${status}`}>{statusLabel[active.status] ?? active.status}</i>
               </div>
               <button className="icon-button" aria-label="Fechar detalhes" onClick={() => setActive(null)}>×</button>
             </div>
-            <div className="agenda-drawer-span">
+            <div className="agenda-detail-span">
               <span>{new Date(appointmentStart(active)).toLocaleString("pt-BR", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })}</span>
-              <small>até {new Date(active.items[active.items.length - 1]?.end_at ?? active.items[0]?.start_at ?? "").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</small>
+              <small>até {new Date(lastItem?.end_at ?? active.items[0]?.start_at ?? "").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</small>
             </div>
-            <ul className="agenda-drawer-items">
+            <ul className="agenda-detail-items">
               {active.items.map((item, index) => (
                 <li key={`${item.service}-${item.professional}-${index}`}>
                   <div><strong>{item.service_name}</strong><small>{item.professional_name}</small></div>
@@ -195,20 +222,22 @@ export function AgendaPage() {
               ))}
             </ul>
             {isTerminal ? (
-              <p className="agenda-drawer-note">Este agendamento está {statusLabel[active.status]?.toLowerCase()} — sem ações pendentes.</p>
+              <p className="agenda-detail-note">Este agendamento está {statusLabel[active.status]?.toLowerCase()} — sem ações pendentes.</p>
             ) : (
-              <div className="agenda-drawer-actions">
-                {active.status === "SCHEDULED" && <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "CONFIRMED" })} className="w-full">Confirmar presença</Button>}
-                <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "COMPLETED" })} className="w-full">Marcar concluído</Button>
-                <Button variant="secondary" onClick={() => statusMutation.mutate({ id: active.id, status: "NO_SHOW" })} className="w-full">Marcar não compareceu</Button>
-                <Button variant="ghost" onClick={() => { if (window.confirm("Cancelar este agendamento? O horário será liberado.")) cancel.mutate(active.id); }} className="w-full button-danger">Cancelar agendamento</Button>
+              <div className="agenda-detail-actions">
+                {active.status === "SCHEDULED" && <Button disabled={isWorking} onClick={() => statusMutation.mutate({ id: active.id, status: "CONFIRMED" })} className="w-full">Confirmar presença</Button>}
+                <div className="agenda-detail-action-row">
+                  <Button variant="secondary" disabled={isWorking} onClick={() => statusMutation.mutate({ id: active.id, status: "COMPLETED" })} className="w-full">Marcar concluído</Button>
+                  <Button variant="secondary" disabled={isWorking} onClick={() => statusMutation.mutate({ id: active.id, status: "NO_SHOW" })} className="w-full">Marcar não compareceu</Button>
+                </div>
+                <Button variant="ghost" disabled={isWorking} onClick={() => { if (window.confirm("Cancelar este agendamento? O horário será liberado.")) cancel.mutate(active.id); }} className="w-full button-danger">Cancelar agendamento</Button>
               </div>
             )}
-            {(statusMutation.isError || cancel.isError) && <p role="alert" className="notice-error mt-3">{errorMessage(statusMutation.error ?? cancel.error)}</p>}
-          </aside>
-        </div>
-      );
-    })()}
+            {(statusMutation.isError || cancel.isError) && <p role="alert" className="notice-error">{errorMessage(statusMutation.error ?? cancel.error)}</p>}
+          </div>
+        );
+      })()}
+    </Modal>
     <MobileFab label="Novo agendamento" onClick={() => openCreate()} />
   </>;
 }

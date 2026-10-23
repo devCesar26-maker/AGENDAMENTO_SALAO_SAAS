@@ -1,15 +1,17 @@
 import { useEffect, useId, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  ariaLabel?: string;
   children: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = "md", className = "" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, ariaLabel, children, size = "md", className = "" }: ModalProps) {
   const titleId = useId();
   useEffect(() => {
     if (isOpen) {
@@ -48,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", className
     xl: "max-w-xl",
   };
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <section
         className={`modal-card panel ${sizeClasses[size]} ${className}`.trim()}
@@ -56,6 +58,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", className
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : ariaLabel}
       >
         {title && (
           <div className="panel-heading">
@@ -73,6 +76,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", className
         )}
         {children}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

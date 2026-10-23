@@ -9,15 +9,12 @@ html[data-theme="light"] {
   --accent: #6366f1;
   --accent-strong: #4f46e5;
   --accent-hover: #4338ca;
+  --workspace-tint: #f7f7fb;
 }
 
 html[data-theme="light"] body {
   background: linear-gradient(135deg, #f7f7fb 0%, #eef0f8 50%, #f5f5fa 100%);
   color: var(--ink);
-}
-
-html[data-theme="light"] body::before {
-  background-image: linear-gradient(color-mix(in srgb, #f7f7fb var(--workspace-shade), transparent), color-mix(in srgb, #f7f7fb var(--workspace-shade), transparent)), var(--workspace-backdrop);
 }
 
 html[data-theme="light"] .panel {

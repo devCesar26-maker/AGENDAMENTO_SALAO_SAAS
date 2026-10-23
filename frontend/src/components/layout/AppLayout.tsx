@@ -118,6 +118,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
 
   return (
     <div className={`app-shell app-shell-sidebar ${collapsed ? "is-collapsed" : ""}`}>
+      <div className="workspace-backdrop" aria-hidden="true" />
       {mobileOpen && <button type="button" className="sidebar-scrim" aria-label="Fechar menu" onClick={() => setMobileOpen(false)} />}
       <aside className={`app-sidebar ${mobileOpen ? "is-open" : ""}`} aria-label="Navegação do aplicativo">
         <div className="sidebar-brand">
@@ -180,7 +181,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
             <span className="sidebar-link-icon"><SunMoon size={18} strokeWidth={1.75} /></span>
             {!collapsed && <span>Tema · {schemeLabel}</span>}
           </button>
-          {!collapsed && <AppearanceSettings organizationSlug={user?.organization?.slug} />}
+          <AppearanceSettings organizationSlug={user?.organization?.slug} collapsed={collapsed} />
           <div className="sidebar-user">
             <span className="user-avatar" aria-hidden="true">{initials || <UserCircle2 size={16} />}</span>
             {!collapsed && (
