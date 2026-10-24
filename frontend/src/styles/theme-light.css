@@ -10,6 +10,8 @@ html[data-theme="light"] {
   --accent-strong: #4f46e5;
   --accent-hover: #4338ca;
   --workspace-tint: #f7f7fb;
+  --workspace-scrim: 55%;
+  --workspace-gutter: clamp(0.75rem, 1.5vw, 1.25rem);
 }
 
 html[data-theme="light"] body {

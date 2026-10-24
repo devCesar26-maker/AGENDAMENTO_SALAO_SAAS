@@ -9,10 +9,17 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --workspace-backdrop: none;
-  --workspace-shade: 65%;
+  --workspace-shade: 38%;
   --workspace-blur: 0px;
   --workspace-position: center;
   --workspace-tint: #0a0a0f;
+  --workspace-gutter: clamp(0.75rem, 1.5vw, 1.25rem);
+  /* Piso de 65% garante contraste AA do texto mesmo sobre uma foto clara e detalhada. */
+  --workspace-panel-opacity: 75%;
+  --workspace-scrim: 40%;
+  /* Desfoque leve fixo: a foto vira textura de fundo mesmo com o controle em 0px. */
+  --workspace-soften: 3px;
+  --workspace-solid-surface: 94%;
   /* Professional design tokens: clean, modern, sophisticated */
   --space-1: .25rem;
   --space-2: .5rem;
@@ -45,14 +52,103 @@ body { min-width: 320px; min-height: 100vh; margin: 0; isolation: isolate; backg
 .workspace-backdrop {
   position: fixed; z-index: -1; inset: -24px; pointer-events: none;
   background-image: linear-gradient(color-mix(in srgb, var(--workspace-tint) var(--workspace-shade), transparent), color-mix(in srgb, var(--workspace-tint) var(--workspace-shade), transparent)), var(--workspace-backdrop);
-  background-position: var(--workspace-position); background-size: cover;
-  filter: blur(var(--workspace-blur)); transform: scale(1.04);
+  background-position: var(--workspace-position);
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(calc(var(--workspace-blur) + var(--workspace-soften)));
+  transform: scale(1.04);
   opacity: 0; transition: opacity .25s ease;
 }
 html[data-workspace-backdrop="true"] .workspace-backdrop { opacity: 1; }
-html[data-workspace-backdrop="true"] .panel {
-  background: linear-gradient(145deg, rgb(255 255 255 / 4%), transparent 45%), color-mix(in srgb, var(--surface) 86%, transparent);
-  backdrop-filter: blur(14px) saturate(1.08);
+
+.workspace-surface {
+  min-width: 0;
+}
+
+html[data-workspace-backdrop="true"] .workspace-surface {
+  position: relative;
+  isolation: isolate;
+  width: min(1480px, calc(100% - var(--workspace-gutter) * 2));
+  min-height: calc(100vh - var(--workspace-gutter) * 2);
+  margin: var(--workspace-gutter) auto;
+  border-radius: 24px;
+}
+
+/* Scrim entre a foto e o conteúdo: a imagem fica em segundo plano, longe do texto. */
+html[data-workspace-backdrop="true"] .workspace-surface::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--stroke) 58%, transparent);
+  border-radius: inherit;
+  background-color: color-mix(in srgb, var(--workspace-tint) var(--workspace-scrim), transparent);
+  box-shadow: 0 22px 70px rgb(0 0 0 / 18%);
+  pointer-events: none;
+}
+
+html[data-workspace-backdrop="true"] .panel:not(.modal-card):not(.appearance-panel):not(.modal-content),
+html[data-workspace-backdrop="true"] .services-card {
+  background-color: color-mix(in srgb, var(--surface) var(--workspace-panel-opacity), transparent);
+  background-image: linear-gradient(145deg, rgb(255 255 255 / 5%), transparent 55%);
+}
+
+/* Dados não são decoração: KPIs, gráficos e tabelas mantêm fundo quase sólido,
+   independente da opacidade escolhida para os demais cartões. Basta trocar a
+   variável local, que a regra de vidro acima resolve para 94%. */
+html[data-workspace-backdrop="true"] .metric-card,
+html[data-workspace-backdrop="true"] .chart-panel,
+html[data-workspace-backdrop="true"] .audit-panel,
+html[data-workspace-backdrop="true"] .metric-table-wrap {
+  --workspace-panel-opacity: var(--workspace-solid-surface);
+}
+
+html[data-workspace-backdrop="true"] .metric-table-wrap {
+  border: 1px solid color-mix(in srgb, var(--stroke) 60%, transparent);
+  border-radius: 14px;
+  background-color: color-mix(in srgb, var(--surface) var(--workspace-solid-surface), transparent);
+  padding: .9rem;
+}
+
+/* Texto que fica fora dos cards recebe o mesmo acabamento de vidro dos painéis. */
+html[data-workspace-backdrop="true"] .page-heading,
+html[data-workspace-backdrop="true"] .agenda-hero,
+html[data-workspace-backdrop="true"] .services-header,
+html[data-workspace-backdrop="true"] .services-toolbar,
+html[data-workspace-backdrop="true"] .export-toolbar,
+html[data-workspace-backdrop="true"] .catalog-toolbar,
+html[data-workspace-backdrop="true"] .page-content > h2 {
+  border: 1px solid color-mix(in srgb, var(--stroke) 72%, transparent);
+  border-radius: 16px;
+  background-color: color-mix(in srgb, var(--surface) var(--workspace-panel-opacity), transparent);
+  background-image: linear-gradient(145deg, rgb(255 255 255 / 5%), transparent 55%);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 16%);
+}
+
+html[data-workspace-backdrop="true"] .page-heading,
+html[data-workspace-backdrop="true"] .agenda-hero {
+  padding: clamp(1rem, 3vw, 1.6rem);
+}
+
+html[data-workspace-backdrop="true"] .services-header {
+  padding: clamp(1rem, 3vw, 1.6rem);
+}
+
+html[data-workspace-backdrop="true"] .services-toolbar,
+html[data-workspace-backdrop="true"] .catalog-toolbar,
+html[data-workspace-backdrop="true"] .export-toolbar,
+html[data-workspace-backdrop="true"] .page-content > h2 {
+  padding: .7rem 1rem;
+}
+
+html[data-workspace-backdrop="true"] .page-content > .notice-error,
+html[data-workspace-backdrop="true"] .page-content > .notice-success {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--stroke) 60%, transparent);
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--surface) var(--workspace-panel-opacity), transparent);
+  padding: .55rem .8rem;
 }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
@@ -116,7 +212,16 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .appearance-control { display: grid; }
 .appearance-control > .button-quiet { width: 100%; }
 .modal-card.appearance-panel { display: grid; width: min(100%, 440px); gap: 1rem; padding: 1.35rem; }
-.appearance-preview { height: 118px; border: 1px solid var(--stroke); border-radius: 10px; background-position: center; background-size: cover; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.appearance-preview { position: relative; display: grid; align-items: end; height: 158px; overflow: hidden; border: 1px solid var(--stroke); border-radius: 12px; background: var(--surface); padding: .7rem; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 12%); }
+.appearance-preview-photo, .appearance-preview-tint, .appearance-preview-scrim { position: absolute; inset: 0; }
+.appearance-preview-photo { background-position: center; background-size: cover; background-repeat: no-repeat; transform: scale(1.04); }
+.appearance-preview-scrim { background-color: color-mix(in srgb, var(--workspace-tint) var(--workspace-scrim), transparent); }
+.appearance-preview-card { position: relative; display: grid; gap: .15rem; border: 1px solid color-mix(in srgb, var(--stroke) 60%, transparent); border-radius: 10px; padding: .55rem .7rem; }
+.appearance-preview-card small { color: var(--muted); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; }
+.appearance-preview-card strong { color: var(--accent-strong); font-family: Georgia, serif; font-size: 1.1rem; font-weight: 400; }
+.appearance-preview-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .76rem; text-align: center; }
+.appearance-actions { display: flex; gap: .6rem; }
+.appearance-actions .button-primary { flex: 1; }
 .appearance-panel h2, .panel-heading h2 { margin: .2rem 0 0; font-family: Georgia, serif; font-size: 1.25rem; font-weight: 400; }
 .helper-copy { margin: 0; font-size: .76rem; }
 .inline-message, .notice-error { color: #ffaaa7; font-size: .83rem; }

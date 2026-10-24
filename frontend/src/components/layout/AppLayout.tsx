@@ -215,8 +215,10 @@ export function AppLayout({ children }: { children?: ReactNode }) {
           </Link>
         </header>
         <div className="app-main-inner">
-          <OnboardingChecklist />
-          {children ?? <Outlet />}
+          <div className="workspace-surface">
+            <OnboardingChecklist />
+            {children ?? <Outlet />}
+          </div>
         </div>
       </div>
     </div>
